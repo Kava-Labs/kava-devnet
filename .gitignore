@@ -1,0 +1,4 @@
+research/peggy/
+research/bitcoin-peg
+node_modules/
+*.env
