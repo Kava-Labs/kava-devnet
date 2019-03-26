@@ -37,7 +37,9 @@ const RippleAPI = require('ripple-lib').RippleAPI;
   const payment = await api.preparePayment(xrpUser.Address, txJson)
   const signedTx = await api.sign(payment.txJSON, xrpUser.Secret)
   const receipt  = await api.submit(signedTx.signedTransaction)
-  console.log(receipt)
+  console.log("Tx Receipt:", receipt)
+  console.log("Tx Memo:", receipt.tx_json.Memos)
+  console.log("Tx Memo Data:", Buffer.from(receipt.tx_json.Memos[0].Memo.MemoData, "hex").toString())
   // memo returns 7573647861646472727347504E6B534C74333642444C4D675041594B69664676437068514A5A32714A77
   // to recover:
   // Buffer.from("7573647861646472727347504E6B534C74333642444C4D675041594B69664676437068514A5A32714A77", "hex").toString()
