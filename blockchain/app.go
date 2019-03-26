@@ -10,7 +10,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	"github.com/cosmos/sdk-application-tutorial/x/nameservice"
+	"github.com/kava-labs/usdx/blockchain/x/nameservice"
+	"github.com/kava-labs/usdx/blockchain/x/peg"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -34,12 +35,14 @@ type usdxApp struct {
 	keyFeeCollection *sdk.KVStoreKey
 	keyParams        *sdk.KVStoreKey
 	tkeyParams       *sdk.TransientStoreKey
+	keyPeg           *sdk.KVStoreKey
 
 	accountKeeper       auth.AccountKeeper
 	bankKeeper          bank.Keeper
 	feeCollectionKeeper auth.FeeCollectionKeeper
 	paramsKeeper        params.Keeper
 	nsKeeper            nameservice.Keeper
+	pegKeeper           peg.Keeper
 }
 
 // NewUsdxApp is a constructor function for usdxApp
@@ -62,11 +65,11 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 		keyFeeCollection: sdk.NewKVStoreKey("fee_collection"),
 		keyParams:        sdk.NewKVStoreKey("params"),
 		tkeyParams:       sdk.NewTransientStoreKey("transient_params"),
+		keyPeg:           sdk.NewKVStoreKey("peg"),
 	}
 
 	// The ParamsKeeper handles parameter storage for the application
 	app.paramsKeeper = params.NewKeeper(app.cdc, app.keyParams, app.tkeyParams)
-
 	// The AccountKeeper handles address -> account lookups
 	app.accountKeeper = auth.NewAccountKeeper(
 		app.cdc,
@@ -74,24 +77,22 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 		app.paramsKeeper.Subspace(auth.DefaultParamspace),
 		auth.ProtoBaseAccount,
 	)
-
 	// The BankKeeper allows you perform sdk.Coins interactions
 	app.bankKeeper = bank.NewBaseKeeper(
 		app.accountKeeper,
 		app.paramsKeeper.Subspace(bank.DefaultParamspace),
 		bank.DefaultCodespace,
 	)
-
 	// The FeeCollectionKeeper collects transaction fees and renders them to the fee distribution module
 	app.feeCollectionKeeper = auth.NewFeeCollectionKeeper(cdc, app.keyFeeCollection)
-
-	// The NameserviceKeeper is the Keeper from the module for this tutorial
-	// It handles interactions with the namestore
+	// The NameserviceKeeper handles interactions with the namestore
 	app.nsKeeper = nameservice.NewKeeper(
 		app.bankKeeper,
 		app.keyNS,
 		app.cdc,
 	)
+	// The peg keeper handles moving xrp into and out of this zone
+	app.pegKeeper = peg.NewKeeper(app.bankKeeper, app.keyPeg, app.cdc)
 
 	// The AnteHandler handles signature verification and transaction pre-processing
 	app.SetAnteHandler(auth.NewAnteHandler(app.accountKeeper, app.feeCollectionKeeper))
@@ -100,7 +101,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 	// Register the bank and nameservice routes here
 	app.Router().
 		AddRoute("bank", bank.NewHandler(app.bankKeeper)).
-		AddRoute("nameservice", nameservice.NewHandler(app.nsKeeper))
+		AddRoute("nameservice", nameservice.NewHandler(app.nsKeeper)).
+		AddRoute("peg", peg.NewHandler(app.pegKeeper))
 
 	// The app.QueryRouter is the main query router where each module registers its routes
 	app.QueryRouter().
@@ -116,6 +118,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 		app.keyFeeCollection,
 		app.keyParams,
 		app.tkeyParams,
+		app.keyPeg,
 	)
 
 	err := app.LoadLatestVersion(app.keyMain)
@@ -190,7 +193,8 @@ func MakeCodec() *codec.Codec {
 	auth.RegisterCodec(cdc)
 	bank.RegisterCodec(cdc)
 	nameservice.RegisterCodec(cdc)
-	staking.RegisterCodec(cdc)
+	peg.RegisterCodec(cdc)
+	staking.RegisterCodec(cdc) // TODO is this meant to be here? There's no staking module in this app.
 	sdk.RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
 	return cdc
