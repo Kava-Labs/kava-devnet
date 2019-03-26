@@ -1,4 +1,4 @@
-module usdx
+module github.com/kava-labs/usdx/blockchain
 
 go 1.12
 
@@ -22,6 +22,8 @@ require (
 	github.com/rakyll/statik v0.1.6 // indirect
 	github.com/rcrowley/go-metrics v0.0.0-20181016184325-3113b8401b8a // indirect
 	github.com/rs/cors v1.6.0 // indirect
+	github.com/sacOO7/go-logger v0.0.0-20180719173527-9ac9add5a50d // indirect
+	github.com/sacOO7/gowebsocket v0.0.0-20180719182212-1436bb906a4e
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0 // indirect
