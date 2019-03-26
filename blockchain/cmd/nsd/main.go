@@ -41,6 +41,13 @@ func main() {
 	cobra.EnableCommandSorting = false
 
 	cdc := app.MakeCodec()
+
+	config := sdk.GetConfig()
+	config.SetBech32PrefixForAccount("usdx", "usdx"+"pub")
+	config.SetBech32PrefixForValidator("usdx"+"val"+"oper", "usdx"+"val"+"oper"+"pub")
+	config.SetBech32PrefixForConsensusNode("usdx"+"val"+"cons", "usdx"+"val"+"cons"+"pub")
+	config.Seal()
+
 	ctx := server.NewDefaultContext()
 
 	rootCmd := &cobra.Command{
