@@ -92,16 +92,16 @@ func handleNewXrpTx(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphr
 	if err != nil {
 		panic(err)
 	}
-	signAndSubmit(txBldr, cliCtx, passphrase, msg)
+	signAndSubmit(txBldr, cliCtx, passphrase, []sdk.Msg{msg})
 }
 
 func parseMessage(msg string) WebSocketXrpTransactionInfo {
 	txInfo := WebSocketXrpTransactionInfo{}
-	json.Unmarshal([]bytes(msg), &txInfo)
+	json.Unmarshal([]byte(msg), &txInfo)
 	return txInfo
 }
 
-func signAndSubmit(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string, msg sdk.Msg) {
+func signAndSubmit(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string, msgs []sdk.Msg) {
 	// set sequence and account numbers
 	txBldr, err := utils.PrepareTxBuilder(txBldr, cliCtx)
 	if err != nil {

@@ -20,9 +20,9 @@ import (
 	auth "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	bankcmd "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
-	app "github.com/cosmos/sdk-application-tutorial"
-	nsclient "github.com/cosmos/sdk-application-tutorial/x/nameservice/client"
-	nsrest "github.com/cosmos/sdk-application-tutorial/x/nameservice/client/rest"
+	app "github.com/kava-labs/usdx/blockchain"
+	nsclient "github.com/kava-labs/usdx/blockchain/x/nameservice/client"
+	nsrest "github.com/kava-labs/usdx/blockchain/x/nameservice/client/rest"
 )
 
 const (
@@ -30,7 +30,7 @@ const (
 	storeNS  = "nameservice"
 )
 
-var defaultCLIHome = os.ExpandEnv("$HOME/.nscli")
+var defaultCLIHome = os.ExpandEnv("$HOME/.usdxcli")
 
 func main() {
 	cobra.EnableCommandSorting = false
@@ -48,8 +48,8 @@ func main() {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   "nscli",
-		Short: "nameservice Client",
+		Use:   "usdxcli",
+		Short: "USDX Client",
 	}
 
 	// Add --chain-id to persistent flags and mark it required
@@ -72,7 +72,7 @@ func main() {
 		version.VersionCmd,
 	)
 
-	executor := cli.PrepareMainCmd(rootCmd, "NS", defaultCLIHome)
+	executor := cli.PrepareMainCmd(rootCmd, "USDX", defaultCLIHome)
 	err := executor.Execute()
 	if err != nil {
 		panic(err)
