@@ -23,14 +23,27 @@ func NewHandler(keeper Keeper) sdk.Handler {
 func handleMsgXrpTx(ctx sdk.Context, keeper Keeper, msg MsgXrpTx) sdk.Result {
 
 	// Request tx hash from ripple api
-	_, err := keeper.fetchXrpTx(msg.TxHash)
+	txData, err := keeper.fetchXrpTransactionData(msg.TxHash)
 	if err != nil {
-		return err.Result() // fetchXrpTx returns a sdk.Error type
+		sdk.ErrInternal("TxHash was not valid").Result()
 	}
-	// Parse out data (valid, memo, amount)
+	// throw if not ok
+	ok := keeper.isPxrpMultisgTransaction(txData)
+	if ok == false {
+		sdk.ErrInternal("Tx is not to validator multisig address")
+	}
+	ok = keeper.hasValidMemoData(txData)
+	if ok == false {
+		sdk.ErrInternal("Memo is invalid")
+	}
+	// TODO validate something with amount?
+
+	_, _, err = keeper.mintPxrp(ctx, txData)
+	if err != nil {
+		sdk.ErrInternal("Failed to mint xprp").Result()
+	}
 	//       k.getMemoData(Transaction.Tx.Memos[0].Memo.MemoData)
 	// Check valid == true
 	// Send/Mint pXRP to account for amount
-
 	return sdk.Result{}
 }
