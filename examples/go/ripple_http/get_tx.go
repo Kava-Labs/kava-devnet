@@ -60,7 +60,7 @@ func main() {
 			} `json:"meta"`
 		} `json:"transaction"`
 	}
-	resp, err := http.Get("https://testnet.data.api.ripple.com/v2/transactions/4C3AF3C9200289A0EA970CFE21F698DC6F3BBAEB3CB78E63CA3598A2F7FED5E9")
+	resp, err := http.Get("https://testnet.data.api.ripple.com/v2/transactions/F98899")
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -69,7 +69,14 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	resStruct := XrpTx{}
-	json.Unmarshal(body, &resStruct)
-	fmt.Println(resStruct)
+	jsonResult := XrpTx{}
+	err = json.Unmarshal(body, &jsonResult)
+	if err != nil {
+		log.Fatal(string(body))
+	}
+	if jsonResult.Result == "error" {
+		msg := fmt.Sprintf("Request returned error: %s", body)
+		log.Fatal(msg)
+	}
+	fmt.Println(jsonResult.Transaction.Hash, jsonResult.Transaction.Tx.Memos[0].Memo.MemoData)
 }
