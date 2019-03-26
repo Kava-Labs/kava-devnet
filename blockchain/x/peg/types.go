@@ -1,7 +1,12 @@
 package peg
 
-import "time"
+import (
+	"time"
 
+	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+// XrpTx Format of transactions returned by ripple api
 type XrpTx struct {
 	Result      string `json:"result"`
 	Transaction struct {
@@ -50,4 +55,10 @@ type XrpTx struct {
 			DeliveredAmount   string `json:"delivered_amount"`
 		} `json:"meta"`
 	} `json:"transaction"`
+}
+
+// ValidatedXrpTx Transaction details needed to mint PXRP
+type ValidatedXrpTx struct {
+	DestinationAccount sdk.AccAddress
+	AmountPxrp         sdk.Int
 }

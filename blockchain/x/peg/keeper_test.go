@@ -66,11 +66,28 @@ func TestFetchXrpTx(t *testing.T) {
 	helper := setupTestHelper()
 	keeper := NewKeeper(helper.bk, sdk.NewKVStoreKey("pegStoreKey"), helper.cdc)
 
-	xrpTx, err := keeper.fetchXrpTx("4C3AF3C9200289A0EA970CFE21F698DC6F3BBAEB3CB78E63CA3598A2F7FED5E9")
+	xrpTx, err := keeper.fetchXrpTransactionData("4C3AF3C9200289A0EA970CFE21F698DC6F3BBAEB3CB78E63CA3598A2F7FED5E9")
 	if err != nil {
 		t.Error(err)
 	}
 	t.Log(xrpTx)
+
+	_, err = keeper.fetchXrpTransactionData("BAD")
+	if err == nil {
+		t.Error("Invalid Xrp Transaction failed to error")
+	}
+
+	coins, tags, err := keeper.mintPxrp(helper.ctx, xrpTx)
+	if err != nil {
+		t.Error("Failed to add coins")
+	}
+	stringTags := sdk.TagsToStringTags(tags)
+	// recipientAddr := stringTags[0].Value
+	// recipientBytes, err2 := sdk.AccAddressFromBech32(recipientAddr)
+	// if err2 != nil {
+	// 	t.Error(err2)
+	// }
+	t.Log(coins, stringTags)
 
 	// Test passes if there is no error
 }
