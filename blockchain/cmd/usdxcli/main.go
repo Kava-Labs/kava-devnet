@@ -37,11 +37,7 @@ func main() {
 
 	cdc := app.MakeCodec()
 
-	config := sdk.GetConfig()
-	config.SetBech32PrefixForAccount("usdx", "usdx"+"pub")
-	config.SetBech32PrefixForValidator("usdx"+"val"+"oper", "usdx"+"val"+"oper"+"pub")
-	config.SetBech32PrefixForConsensusNode("usdx"+"val"+"cons", "usdx"+"val"+"cons"+"pub")
-	config.Seal()
+	app.SetAddressPrefixes()
 
 	mc := []sdk.ModuleClients{
 		nsclient.NewModuleClient(storeNS, cdc),

@@ -24,11 +24,7 @@ type XrpTx struct {
 			TxnSignature       string `json:"TxnSignature"`
 			Account            string `json:"Account"`
 			Destination        string `json:"Destination"`
-			Memos              []struct {
-				Memo struct {
-					MemoData string `json:"MemoData"`
-				} `json:"Memo"`
-			} `json:"Memos"`
+			Memos              []Memo `json:"Memos"`
 		} `json:"tx"`
 		Meta struct {
 			TransactionIndex int `json:"TransactionIndex"`
@@ -55,6 +51,15 @@ type XrpTx struct {
 			DeliveredAmount   string `json:"delivered_amount"`
 		} `json:"meta"`
 	} `json:"transaction"`
+}
+
+// Memo is the format of the json memos returned by the ripple api
+type Memo struct {
+	Memo struct {
+		MemoData   string `json:"MemoData"`
+		MemoFormat string `json:"MemoFormat"`
+		MemoType   string `json:"MemoType"`
+	} `json:"Memo"`
 }
 
 // ValidatedXrpTx Transaction details needed to mint PXRP
