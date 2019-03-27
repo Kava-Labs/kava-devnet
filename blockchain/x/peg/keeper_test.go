@@ -1,18 +1,18 @@
 package peg
 
 import (
+	"strconv"
 	"testing"
 
-	abci "github.com/tendermint/tendermint/abci/types"
-	dbm "github.com/tendermint/tendermint/libs/db"
-	"github.com/tendermint/tendermint/libs/log"
-
-	codec "github.com/cosmos/cosmos-sdk/codec"
+	"github.com/cosmos/cosmos-sdk/codec"
 	"github.com/cosmos/cosmos-sdk/store"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
+	abci "github.com/tendermint/tendermint/abci/types"
+	dbm "github.com/tendermint/tendermint/libs/db"
+	"github.com/tendermint/tendermint/libs/log"
 )
 
 // Test helpers copied from the bank keeper tests.
@@ -76,18 +76,41 @@ func TestFetchXrpTx(t *testing.T) {
 	if err == nil {
 		t.Error("Invalid Xrp Transaction failed to error")
 	}
+	// Tests pass if there is no errors
+}
 
-	coins, tags, err := keeper.mintPxrp(helper.ctx, xrpTx)
+// example cosmos address:
+// cosmos18uymlc5uelgjx5kr2eztacdzyy5jvjwf6nnw85
+// above address converted to raw bytes then hex encoded:
+// 636f736d6f73313875796d6c633575656c676a78356b7232657a746163647a7979356a766a7766366e6e773835
+func TestMintPxrp(t *testing.T) {
+	helper := setupTestHelper()
+	keeper := NewKeeper(helper.bk, sdk.NewKVStoreKey("pegStoreKey"), helper.cdc)
+	destAddr, err := sdk.AccAddressFromBech32("cosmos18uymlc5uelgjx5kr2eztacdzyy5jvjwf6nnw85")
 	if err != nil {
-		t.Error("Failed to add coins")
+		t.Error(err)
 	}
-	stringTags := sdk.TagsToStringTags(tags)
-	// recipientAddr := stringTags[0].Value
-	// recipientBytes, err2 := sdk.AccAddressFromBech32(recipientAddr)
-	// if err2 != nil {
-	// 	t.Error(err2)
-	// }
-	t.Log(coins, stringTags)
+	amount := 100
+	xrpTx := XrpTx{}
+	xrpTx.Transaction.Tx.Amount = strconv.Itoa(amount) // "Integer to Ascii"
+	memo := Memo{}
+	memo.Memo.MemoData = "636f736d6f73313875796d6c633575656c676a78356b7232657a746163647a7979356a766a7766366e6e773835"
+	xrpTx.Transaction.Tx.Memos = []Memo{memo}
 
-	// Test passes if there is no error
+	tags, err := keeper.mintPxrp(helper.ctx, xrpTx)
+	if err != nil {
+		t.Error(err)
+	}
+
+	coins := keeper.coinKeeper.GetCoins(helper.ctx, destAddr)
+	expectedCoins := sdk.Coins{sdk.NewCoin("pxrp", sdk.NewInt(int64(amount)))}
+	if !coins.IsEqual(expectedCoins) {
+		t.Errorf("Incorrect amount of PXRP minted. Expected %s, got %s", expectedCoins, coins)
+	}
+
+	expectedAddress := "cosmos18uymlc5uelgjx5kr2eztacdzyy5jvjwf6nnw85"
+	receivedAddress := sdk.TagsToStringTags(tags)[0].Value
+	if receivedAddress != expectedAddress {
+		t.Errorf("Incorrect receiving address: Expected: %s Got: %s", expectedAddress, receivedAddress)
+	}
 }

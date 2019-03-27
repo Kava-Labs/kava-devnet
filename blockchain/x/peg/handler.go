@@ -6,7 +6,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// NewHandler returns a handler for "nameservice" type messages.
+// NewHandler returns a handler for "peg" type messages.
 func NewHandler(keeper Keeper) sdk.Handler {
 	return func(ctx sdk.Context, msg sdk.Msg) sdk.Result {
 		switch msg := msg.(type) {
@@ -19,7 +19,7 @@ func NewHandler(keeper Keeper) sdk.Handler {
 	}
 }
 
-// Handle a message to set name
+// Handle a message to mint pXrp
 func handleMsgXrpTx(ctx sdk.Context, keeper Keeper, msg MsgXrpTx) sdk.Result {
 
 	// Request tx hash from ripple api
@@ -27,7 +27,7 @@ func handleMsgXrpTx(ctx sdk.Context, keeper Keeper, msg MsgXrpTx) sdk.Result {
 	if err != nil {
 		sdk.ErrInternal("TxHash was not valid").Result()
 	}
-	// throw if not ok
+	// throw if transaction not ok
 	ok := keeper.isPxrpMultisgTransaction(txData)
 	if ok == false {
 		sdk.ErrInternal("Tx is not to validator multisig address")
@@ -36,14 +36,13 @@ func handleMsgXrpTx(ctx sdk.Context, keeper Keeper, msg MsgXrpTx) sdk.Result {
 	if ok == false {
 		sdk.ErrInternal("Memo is invalid")
 	}
-	// TODO validate something with amount?
 
-	_, _, err = keeper.mintPxrp(ctx, txData)
+	// Mint new pxrp
+	tags, err := keeper.mintPxrp(ctx, txData)
 	if err != nil {
-		sdk.ErrInternal("Failed to mint xprp").Result()
+		sdk.ErrInternal("Failed to mint pxrp").Result()
 	}
-	//       k.getMemoData(Transaction.Tx.Memos[0].Memo.MemoData)
-	// Check valid == true
-	// Send/Mint pXRP to account for amount
-	return sdk.Result{}
+	return sdk.Result{
+		Tags: tags,
+	}
 }

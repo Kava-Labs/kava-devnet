@@ -20,9 +20,9 @@ import (
 	auth "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	bankcmd "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
-	app "github.com/cosmos/sdk-application-tutorial"
-	nsclient "github.com/cosmos/sdk-application-tutorial/x/nameservice/client"
-	nsrest "github.com/cosmos/sdk-application-tutorial/x/nameservice/client/rest"
+	"github.com/kava-labs/usdx/blockchain/app"
+	nsclient "github.com/kava-labs/usdx/blockchain/x/nameservice/client"
+	nsrest "github.com/kava-labs/usdx/blockchain/x/nameservice/client/rest"
 )
 
 const (
@@ -30,26 +30,22 @@ const (
 	storeNS  = "nameservice"
 )
 
-var defaultCLIHome = os.ExpandEnv("$HOME/.nscli")
+var defaultCLIHome = os.ExpandEnv("$HOME/.usdxcli")
 
 func main() {
 	cobra.EnableCommandSorting = false
 
 	cdc := app.MakeCodec()
 
-	config := sdk.GetConfig()
-	config.SetBech32PrefixForAccount("usdx", "usdx"+"pub")
-	config.SetBech32PrefixForValidator("usdx"+"val"+"oper", "usdx"+"val"+"oper"+"pub")
-	config.SetBech32PrefixForConsensusNode("usdx"+"val"+"cons", "usdx"+"val"+"cons"+"pub")
-	config.Seal()
+	app.SetAddressPrefixes()
 
 	mc := []sdk.ModuleClients{
 		nsclient.NewModuleClient(storeNS, cdc),
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   "nscli",
-		Short: "nameservice Client",
+		Use:   "usdxcli",
+		Short: "USDX Client",
 	}
 
 	// Add --chain-id to persistent flags and mark it required
@@ -72,7 +68,7 @@ func main() {
 		version.VersionCmd,
 	)
 
-	executor := cli.PrepareMainCmd(rootCmd, "NS", defaultCLIHome)
+	executor := cli.PrepareMainCmd(rootCmd, "USDX", defaultCLIHome)
 	err := executor.Execute()
 	if err != nil {
 		panic(err)
