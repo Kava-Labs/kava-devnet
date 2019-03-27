@@ -20,7 +20,7 @@ import (
 	auth "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	bankcmd "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
-	app "github.com/kava-labs/usdx/blockchain"
+	"github.com/kava-labs/usdx/blockchain/app"
 	nsclient "github.com/kava-labs/usdx/blockchain/x/nameservice/client"
 	nsrest "github.com/kava-labs/usdx/blockchain/x/nameservice/client/rest"
 )

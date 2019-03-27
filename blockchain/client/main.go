@@ -16,7 +16,7 @@ import (
 
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 
-	app "github.com/kava-labs/usdx/blockchain"
+	"github.com/kava-labs/usdx/blockchain/app"
 	"github.com/kava-labs/usdx/blockchain/x/peg"
 )
 
