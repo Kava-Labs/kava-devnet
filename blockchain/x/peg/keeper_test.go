@@ -97,7 +97,7 @@ func TestMintPxrp(t *testing.T) {
 	memo.Memo.MemoData = "636f736d6f73313875796d6c633575656c676a78356b7232657a746163647a7979356a766a7766366e6e773835"
 	xrpTx.Transaction.Tx.Memos = []Memo{memo}
 
-	_, err = keeper.mintPxrp(helper.ctx, xrpTx)
+	tags, err := keeper.mintPxrp(helper.ctx, xrpTx)
 	if err != nil {
 		t.Error(err)
 	}
@@ -106,5 +106,11 @@ func TestMintPxrp(t *testing.T) {
 	expectedCoins := sdk.Coins{sdk.NewCoin("pxrp", sdk.NewInt(int64(amount)))}
 	if !coins.IsEqual(expectedCoins) {
 		t.Errorf("Incorrect amount of PXRP minted. Expected %s, got %s", expectedCoins, coins)
+	}
+
+	expectedAddress := "cosmos18uymlc5uelgjx5kr2eztacdzyy5jvjwf6nnw85"
+	receivedAddress := sdk.TagsToStringTags(tags)[0].Value
+	if receivedAddress != expectedAddress {
+		t.Errorf("Incorrect receiving address: Expected: %s Got: %s", expectedAddress, receivedAddress)
 	}
 }
