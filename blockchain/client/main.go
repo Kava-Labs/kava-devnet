@@ -2,7 +2,6 @@ package main
 
 import (
 	"encoding/json"
-	"fmt"
 	"log"
 	"os"
 	"os/signal"
@@ -10,14 +9,15 @@ import (
 	"github.com/sacOO7/gowebsocket"
 
 	"github.com/cosmos/cosmos-sdk/client/context"
-	"github.com/cosmos/cosmos-sdk/client/keys"
 	"github.com/cosmos/cosmos-sdk/client/utils"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	authtxb "github.com/cosmos/cosmos-sdk/x/auth/client/txbuilder"
+	"github.com/cosmos/cosmos-sdk/client/keys"
 
-	// remove 'app' and it should work
-	app "github.com/kava-labs/usdx/blockchain"   // If we put code in this path, then this should import as 'app' because that's the pkg declaration in the package name of 'blockchain'
-	"github.com/kava-labs/usdx/blockchain/x/peg" // TODO these need fixed
+	rpcclient "github.com/tendermint/tendermint/rpc/client"
+
+	"github.com/kava-labs/usdx/blockchain/app"
+	"github.com/kava-labs/usdx/blockchain/x/peg"
 )
 
 func main() {
@@ -27,17 +27,18 @@ func main() {
 
 	// Setup SDK stuff -------------------------------------------------------------
 	cdc := app.MakeCodec()
-	cliCtx := context.NewCLIContext().WithCodec(cdc).WithAccountDecoder(cdc)
-	txBldr := authtxb.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
-	if err := cliCtx.EnsureAccountExists(); err != nil {
-		panic(err)
-	}
-	fromName := cliCtx.GetFromName()
-	passphrase, err := keys.GetPassphrase(fromName)
+	// TODO
+	// create Keybase from dir - cosmos-sdk/client/keys#
+	kb, err := keys.NewKeyBaseFromDir("~/.usdxcli")
+	// set key name
+	validatorKeyName := "val"
+	// get key addr
+	validatorAddress := kb.Get(validatorKeyName).GetAddress() // sdk.AccAddress
+	// get key password - from stdin
+	passphrase, err := keys.GetPassphrase(validatorKeyName)
 	if err != nil {
 		panic(err)
 	}
-	cliCtx.PrintResponse = true // might want to disable this
 
 	// Setup Websocket -------------------------------------------------------------
 	socket := gowebsocket.New("wss://s.altnet.rippletest.net:51233/")
@@ -59,7 +60,7 @@ func main() {
 	}
 	socket.OnTextMessage = func(message string, socket gowebsocket.Socket) {
 		log.Println("Received message - " + message)
-		handleNewXrpTx(txBldr, cliCtx, passphrase, message)
+		handleNewXrpTx(validatorAddress, passphrase, message)
 	}
 
 	// Subscribe to new txs on the XRP multisig ------------------------------------
@@ -77,7 +78,7 @@ func main() {
 	}
 }
 
-func handleNewXrpTx(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string, message string) {
+func handleNewXrpTx(validatorAddress sdk.AccAddress, passphrase string, message string) {
 	// Parse message into struct
 	parsedMessage := parseMessage(message)
 	txHash := parsedMessage.Transaction.Hash
@@ -86,52 +87,55 @@ func handleNewXrpTx(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphr
 	// TODO
 
 	// Create, sign and submit tx
-	from := cliCtx.GetFromAddress()
-	msg := peg.NewMsgXrpTx(txHash, from)
+	msg := peg.NewMsgXrpTx(txHash, validatorAddress)
 	err := msg.ValidateBasic()
 	if err != nil {
 		panic(err)
 	}
-	signAndSubmit(txBldr, cliCtx, passphrase, msg)
+	signAndSubmit(passphrase, []sdk.Msg{msg})
 }
 
 func parseMessage(msg string) WebSocketXrpTransactionInfo {
 	txInfo := WebSocketXrpTransactionInfo{}
-	json.Unmarshal([]bytes(msg), &txInfo)
+	json.Unmarshal([]byte(msg), &txInfo)
 	return txInfo
 }
 
-func signAndSubmit(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string, msg sdk.Msg) {
-	// set sequence and account numbers
-	txBldr, err := utils.PrepareTxBuilder(txBldr, cliCtx)
+func signAndSubmit(passphrase string, msgs []sdk.Msg) {
+	// TODO replace some of below by creating a txBuilder at the top level then using it here to build and sign the txs
+	// Probably want to use some of the cliContext methods to fetch account and sequence numbers
+
+	// BuildAndSign
+	// 	Create StdSignMsg - bunch of details
+	stdSignMsg := authtxb.StdSignMsg{
+		ChainID:       bldr.chainID,
+		AccountNumber: bldr.accountNumber,
+		Sequence:      bldr.sequence,
+		Memo:          bldr.memo,
+		Msgs:          msgs,
+		Fee:           auth.NewStdFee(bldr.gas, fees),
+	}
+	// 	get signBytes and create auth.StdSignature (using helper function)
+	sig, err := authtxb.MakeSignature(kb, validatorKeyName, passphrase, stdSignMsg)
+	// 	create auth.StdTx
+	stdTx := auth.NewStdTx(msg.Msgs, msg.Fee, []auth.StdSignature{sig}, msg.Memo)
+	// 	encode it using txEncoder
+	txEncoder := utils.GetTxEncoder(cdc)
+	tx := txEncoder(stdTx)
+
+	// BroadcastTx
+	// 	create / get node
+	node := rpcclient.NewHTTP("tcp://localhost:26657", "/websocket")
+	// 	submit transaction
+	res, err := node.BroadcastTxCommit(tx)
 	if err != nil {
 		panic(err)
 	}
-
-	if txBldr.SimulateAndExecute() || cliCtx.Simulate {
-		txBldr, err = utils.EnrichWithGas(txBldr, cliCtx, msgs)
-		if err != nil {
-			panic(err)
-		}
-
-		gasEst := utils.GasEstimateResponse{GasEstimate: txBldr.Gas()} // Don't need this
-		fmt.Fprintf(os.Stderr, "%s\n", gasEst.String())
+	// 	Check it was delivered correctly
+	if res.CheckTx.IsOK() || res.DeliverTx.IsOK() {
+		panic("tx not included in block")
 	}
 
-	// if cliCtx.Simulate { // Don't think this needs to be here
-	// 	return nil
-	// }
-
-	// build and sign the transaction
-	fromName := cliCtx.GetFromName()
-	txBytes, err := txBldr.BuildAndSign(fromName, passphrase, msgs)
-	if err != nil {
-		panic(err)
-	}
-
-	// broadcast to a Tendermint node
-	res, err := cliCtx.BroadcastTx(txBytes)
-	cliCtx.PrintOutput(res)
 }
 
 // NOTES

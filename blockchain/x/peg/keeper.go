@@ -1,6 +1,7 @@
 package peg
 
 import (
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
@@ -15,10 +16,8 @@ import (
 // Keeper maintains the link to data storage and exposes getter/setter methods for the various parts of the state machine
 type Keeper struct {
 	coinKeeper bank.Keeper
-
-	storeKey sdk.StoreKey // Unexposed key to access store from sdk.Context
-
-	cdc *codec.Codec // The wire codec for binary encoding/decoding.
+	storeKey   sdk.StoreKey // Unexposed key to access store from sdk.Context
+	cdc        *codec.Codec // The wire codec for binary encoding/decoding.
 }
 
 // NewKeeper creates new instances of the nameservice Keeper
@@ -30,7 +29,6 @@ func NewKeeper(coinKeeper bank.Keeper, storeKey sdk.StoreKey, cdc *codec.Codec) 
 	}
 }
 
-// TODO what does this function return? - some data containing results from xrp tx
 func (k Keeper) fetchXrpTransactionData(txHash string) (XrpTx, sdk.Error) {
 	url := fmt.Sprintf("https://testnet.data.api.ripple.com/v2/transactions/%s", txHash)
 	resp, err := http.Get(url)
@@ -64,25 +62,34 @@ func (k Keeper) hasValidMemoData(xrpTx XrpTx) bool {
 	return true
 }
 
-func (k Keeper) mintPxrp(ctx sdk.Context, xrpTx XrpTx) (sdk.Coins, sdk.Tags, sdk.Error) {
-	// txMemo := xrpTx.Transaction.Tx.Memos[0].Memo.MemoData
-	// decoded, err := hex.DecodeString(txMemo)
-	// if err != nil {
-	// 	log.Fatal(err)
-	// }
+func (k Keeper) mintPxrp(ctx sdk.Context, xrpTx XrpTx) (sdk.Tags, sdk.Error) {
 	amount, ok := sdk.NewIntFromString(xrpTx.Transaction.Tx.Amount)
 	if ok == false {
-		sdk.ErrInternal("Invalid amount")
+		return nil, sdk.ErrInternal("Invalid amount")
 	}
-	address, err := sdk.AccAddressFromHex(xrpTx.Transaction.Tx.Memos[0].Memo.MemoData)
+	destAddressBech32, err := decodeXrpTxMemoData(xrpTx.Transaction.Tx.Memos[0].Memo.MemoData)
 	if err != nil {
-		sdk.ErrInternal("Invalid destination address")
+		return nil, sdk.ErrInternal("Invalid memo")
 	}
-	sendAmount := sdk.Coins{sdk.NewCoin("pxrp", amount)}
+	destAddress, err := sdk.AccAddressFromBech32(destAddressBech32)
+	if err != nil {
+		fmt.Println(err)
+		return nil, sdk.ErrInternal("Invalid destination address")
+	}
 
-	coins, tags, err := k.coinKeeper.AddCoins(ctx, address, sendAmount)
-	return coins, tags, nil
+	sendAmount := sdk.Coins{sdk.NewCoin("pxrp", amount)}
+	_, tags, errSdk := k.coinKeeper.AddCoins(ctx, destAddress, sendAmount)
+	if errSdk != nil {
+		return nil, errSdk
+	}
+	return tags, nil
 
 }
 
-// cosmos1w4ekg7rpv3j8yunngagyu66nf36rxdjzg3xy6e6sg9v5k6txgemyxurg29995vn3ffms5sgz03
+func decodeXrpTxMemoData(memoData string) (string, error) {
+	bz, err := hex.DecodeString(memoData)
+	if err != nil {
+		return "", err
+	}
+	return string(bz), err
+}
