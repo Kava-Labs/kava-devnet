@@ -2,17 +2,22 @@ package main
 
 import (
 	"encoding/json"
+	"errors"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
 
 	"github.com/sacOO7/gowebsocket"
 
-	"github.com/cosmos/cosmos-sdk/client/context"
-	"github.com/cosmos/cosmos-sdk/client/utils"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtxb "github.com/cosmos/cosmos-sdk/x/auth/client/txbuilder"
+	//"github.com/cosmos/cosmos-sdk/client/context"
+	//"github.com/cosmos/cosmos-sdk/client/utils"
 	"github.com/cosmos/cosmos-sdk/client/keys"
+	"github.com/cosmos/cosmos-sdk/codec"
+	cryptoKeys "github.com/cosmos/cosmos-sdk/crypto/keys"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	authtxb "github.com/cosmos/cosmos-sdk/x/auth/client/txbuilder"
 
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
 
@@ -26,6 +31,10 @@ func main() {
 	signal.Notify(interrupt, os.Interrupt)
 
 	// Setup SDK stuff -------------------------------------------------------------
+	// TODO create queue and worker (with sdk stuff)
+	// make a channel with a capacity of 100.
+	jobChan := make(chan Job, 100)
+
 	cdc := app.MakeCodec()
 	// TODO
 	// create Keybase from dir - cosmos-sdk/client/keys#
@@ -33,12 +42,17 @@ func main() {
 	// set key name
 	validatorKeyName := "val"
 	// get key addr
-	validatorAddress := kb.Get(validatorKeyName).GetAddress() // sdk.AccAddress
+	validatorAddressInfo, _ := kb.Get(validatorKeyName)
+	validatorAddress := validatorAddressInfo.GetAddress() // sdk.AccAddress
 	// get key password - from stdin
 	passphrase, err := keys.GetPassphrase(validatorKeyName)
 	if err != nil {
 		panic(err)
 	}
+	encoder := sdk.GetConfig().GetTxEncoder()
+	// 	create / get node
+	node := rpcclient.NewHTTP("tcp://localhost:26657", "/websocket")
+	chainID := "something"
 
 	// Setup Websocket -------------------------------------------------------------
 	socket := gowebsocket.New("wss://s.altnet.rippletest.net:51233/")
@@ -60,12 +74,15 @@ func main() {
 	}
 	socket.OnTextMessage = func(message string, socket gowebsocket.Socket) {
 		log.Println("Received message - " + message)
-		handleNewXrpTx(validatorAddress, passphrase, message)
+		handleNewXrpTx(jobChan, validatorAddress, passphrase, message)
 	}
 
 	// Subscribe to new txs on the XRP multisig ------------------------------------
 	socket.Connect()
 	socket.SendText(`{"id": "Example watch Multisig Wallet","command": "subscribe","accounts": ["rs16hESfGChwAnK97oSdRJq4A18gcJbE7j"]}`)
+
+	// Start the Job Worker --------------------------------------------------------
+	go worker(jobChan, chainID, validatorAddress, kb, validatorKeyName, passphrase, encoder, node, cdc)
 
 	// Handle shutdown -------------------------------------------------------------
 	for {
@@ -73,12 +90,15 @@ func main() {
 		case <-interrupt:
 			log.Println("interrupt")
 			socket.Close()
+			// TODO shutdown worker, print remaining in queue?
 			return
 		}
 	}
 }
 
-func handleNewXrpTx(validatorAddress sdk.AccAddress, passphrase string, message string) {
+type Job = []sdk.Msg
+
+func handleNewXrpTx(jobChan chan Job, validatorAddress sdk.AccAddress, passphrase string, message string) {
 	// Parse message into struct
 	parsedMessage := parseMessage(message)
 	txHash := parsedMessage.Transaction.Hash
@@ -92,7 +112,10 @@ func handleNewXrpTx(validatorAddress sdk.AccAddress, passphrase string, message 
 	if err != nil {
 		panic(err)
 	}
-	signAndSubmit(passphrase, []sdk.Msg{msg})
+	job := []sdk.Msg{msg}
+	// enqueue a job
+	jobChan <- job
+	//signAndSubmit(passphrase, []sdk.Msg{msg}) // TODO replace with add to queue
 }
 
 func parseMessage(msg string) WebSocketXrpTransactionInfo {
@@ -101,31 +124,36 @@ func parseMessage(msg string) WebSocketXrpTransactionInfo {
 	return txInfo
 }
 
-func signAndSubmit(passphrase string, msgs []sdk.Msg) {
+// Simple job queue thing taken from https://www.opsdash.com/blog/job-queues-in-go.html
+func worker(jobChan <-chan Job, chainID string, validatorAddress sdk.AccAddress, kb cryptoKeys.Keybase, validatorKeyName string, passphrase string, encoder sdk.TxEncoder, node rpcclient.Client, cdc *codec.Codec) {
+	for job := range jobChan {
+		submitTx(job, chainID, validatorAddress, kb, validatorKeyName, passphrase, encoder, node, cdc)
+
+	}
+}
+
+func submitTx(msgs []sdk.Msg, chainID string, validatorAddress sdk.AccAddress, kb cryptoKeys.Keybase, validatorKeyName string, passphrase string, encoder sdk.TxEncoder, node rpcclient.Client, cdc *codec.Codec) error {
 	// TODO replace some of below by creating a txBuilder at the top level then using it here to build and sign the txs
 	// Probably want to use some of the cliContext methods to fetch account and sequence numbers
 
 	// BuildAndSign
 	// 	Create StdSignMsg - bunch of details
+	account, _ := getAccount(node, cdc, validatorAddress) // fetches info from node, needs to be in worker
 	stdSignMsg := authtxb.StdSignMsg{
-		ChainID:       bldr.chainID,
-		AccountNumber: bldr.accountNumber,
-		Sequence:      bldr.sequence,
-		Memo:          bldr.memo,
+		ChainID:       chainID,
+		AccountNumber: account.GetAccountNumber(),
+		Sequence:      account.GetSequence(),
+		Memo:          "",
 		Msgs:          msgs,
-		Fee:           auth.NewStdFee(bldr.gas, fees),
+		Fee:           auth.NewStdFee(10000, sdk.Coins{sdk.NewCoin("pxrp", sdk.NewInt(1))}), //TODO set really high for now, use simulator on txBuilder in future
 	}
 	// 	get signBytes and create auth.StdSignature (using helper function)
 	sig, err := authtxb.MakeSignature(kb, validatorKeyName, passphrase, stdSignMsg)
 	// 	create auth.StdTx
-	stdTx := auth.NewStdTx(msg.Msgs, msg.Fee, []auth.StdSignature{sig}, msg.Memo)
+	stdTx := auth.NewStdTx(stdSignMsg.Msgs, stdSignMsg.Fee, []auth.StdSignature{sig}, stdSignMsg.Memo)
 	// 	encode it using txEncoder
-	txEncoder := utils.GetTxEncoder(cdc)
-	tx := txEncoder(stdTx)
+	tx, _ := encoder(stdTx)
 
-	// BroadcastTx
-	// 	create / get node
-	node := rpcclient.NewHTTP("tcp://localhost:26657", "/websocket")
 	// 	submit transaction
 	res, err := node.BroadcastTxCommit(tx)
 	if err != nil {
@@ -136,6 +164,34 @@ func signAndSubmit(passphrase string, msgs []sdk.Msg) {
 		panic("tx not included in block")
 	}
 
+	return nil
+}
+
+func getAccount(node rpcclient.Client, cdc *codec.Codec, address sdk.AccAddress) (auth.Account, error) {
+
+	bz, err := cdc.MarshalJSON(auth.NewQueryAccountParams(address)) // This is not present in v0.32
+	if err != nil {
+		return nil, err
+	}
+
+	route := fmt.Sprintf("custom/%s/%s", "account?", auth.QueryAccount) //TODO
+
+	result, err := node.ABCIQuery(route, bz)
+	if err != nil {
+		return nil, err
+	}
+
+	resp := result.Response
+	if !resp.IsOK() {
+		return nil, errors.New(resp.Log)
+	}
+
+	var account auth.Account
+	if err := cdc.UnmarshalJSON(resp.Value, &account); err != nil {
+		return nil, err
+	}
+
+	return account, nil
 }
 
 // NOTES
@@ -157,4 +213,43 @@ TODO
  - find alternative to passing password around everywhere (look at what validators use for their private keys)
  - tidy up tx submission functions to get more general
  - handle concurrency
+*/
+
+/* How to construct tx submitter.
+ - storing account sequence nums doesn't seem helpful - can never mirror blockchain 100%
+ - pull them in as needed
+ - Don't need to submit tx and get it confirmed before submitting next one
+ - submitting
+	- submit and forget
+	- submit, check received into mempool cache (if possible?)
+	- submit, wait until `CheckTx` is ok (ie it's in the mempool)
+	- submit, wait until `DeliverTx` is ok (ie it's in a valid block, and that block has updated the sdk app state)
+ - keeping things simple - just use a queue
+
+*/
+
+// // Simple job queue thing taken from https://www.opsdash.com/blog/job-queues-in-go.html
+// func worker(jobChan <-chan Job) {
+//     for job := range jobChan {
+//         process(job)
+//     }
+// }
+
+// // make a channel with a capacity of 100.
+// jobChan := make(chan Job, 100)
+
+// // start the worker
+// go worker(jobChan)
+
+// // enqueue a job
+// jobChan <- job
+
+/* TODO stuff to get:
+- chainID
+- keybase
+- cdc or txEncoder
+- passphrase, keyName
+- account Object thing
+
+- maybe txEncoder, node
 */
