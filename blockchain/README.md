@@ -1,11 +1,24 @@
-# SDK Application Tutorial
+# WIP XRP Peg Zone
 
-This repository contains the source code of the nameservice tutorial. 
+## Install
 
-## Tutorial
+    go install ./cmd/usdxd ./cmd/usdxcli ./client
 
-**[Click here](./tutorial/README.md)** to access the tutorial. You can also view it on the [website](https://cosmos.network/docs/tutorial).
+## Setup
 
-## Building and running the example
+    usdxd init --chain-id usdx-test
+    usdxcli keys add validatorName
+    # enter a new password
+    # re-enter password
+    usdxd add-genesis-account <validatorName's address> 10xrs
+    usdxcli config trust-node true
 
-**[Click here](./tutorial/build-run.md)**  for instructions on how to build and run the code.
+## Run (in separate windows)
+
+    usdxd start 
+    client
+
+Send a xrp tx to the multisig using `node xrpPayToMultisig.js` in examples.
+
+Check account balance using `usdxcli query account usdx1cwd9fxrxvz5yq5qdrtscvmc4h0l7mqu9hldkfa`
+Querying won't work until there is at least one tx sent to that address.
