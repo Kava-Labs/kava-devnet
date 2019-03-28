@@ -6,6 +6,7 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/sacOO7/gowebsocket"
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
@@ -35,7 +36,7 @@ func main() {
 
 	// Setup SDK stuff -------------------------------------------------------------
 	app.SetAddressPrefixes()
-	validatorKeyName := "val"
+	validatorKeyName := "validatorName" // not actually a validator, just a local account
 	kb, err := keys.NewKeyBaseFromDir(os.ExpandEnv("$HOME/.usdxcli"))
 	if err != nil {
 		panic(err)
@@ -135,6 +136,7 @@ func worker(jobQueue <-chan Job, runJob func(Job)) {
 func getJobRunner(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string) func(Job) {
 	return (func(job Job) {
 		log.Printf("Submiting new tx...")
+		time.Sleep(10 * time.Second) // hackityhackhack
 		err := CompleteAndBroadcastTxCLI(txBldr, cliCtx, passphrase, job)
 		if err != nil {
 			log.Printf("...failed %s", err)
@@ -190,7 +192,7 @@ func newTxBuilder(cdc *codec.Codec, kb cryptokeys.Keybase) authtxb.TxBuilder {
 		client.DefaultGasLimit,      //gas
 		client.DefaultGasAdjustment, //gasAdjustment
 		false,                       //simulateAndExecute //maybe
-		"the peg zone chain id",     //chainID
+		"usdx-test",                 //chainID
 		"",                          //memo
 		fees,                        //fees
 		gasPrices,                   //gasPrices
@@ -231,6 +233,6 @@ func CompleteAndBroadcastTxCLI(txBldr authtxb.TxBuilder, cliCtx context.CLIConte
 
 	// broadcast to a Tendermint node
 	res, err := cliCtx.BroadcastTx(txBytes)
-	cliCtx.PrintOutput(res)
+	log.Printf("Tx submission response: %s", res)
 	return err
 }
