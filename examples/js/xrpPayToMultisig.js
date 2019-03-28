@@ -44,4 +44,4 @@ const RippleAPI = require('ripple-lib').RippleAPI;
   // to recover:
   // Buffer.from("7573647861646472727347504E6B534C74333642444C4D675041594B69664676437068514A5A32714A77", "hex").toString()
 
-})()
+})().finally(() => {process.exit()})
