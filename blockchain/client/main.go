@@ -29,11 +29,12 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
-	// Setup SDK stuff -------------------------------------------------------------
-	// TODO create queue and worker (with sdk stuff)
+	// Create the job queue -------------------------------------------------------
 	// make a channel with a capacity of 100.
 	jobQueue := make(chan Job, 100)
 
+	// Setup SDK stuff -------------------------------------------------------------
+	app.SetAddressPrefixes()
 	validatorKeyName := "val"
 	kb, err := keys.NewKeyBaseFromDir(os.ExpandEnv("$HOME/.usdxcli"))
 	if err != nil {
@@ -68,7 +69,10 @@ func main() {
 	}
 	socket.OnTextMessage = func(message string, socket gowebsocket.Socket) {
 		log.Println("Received message - " + message)
-		handleNewXrpTx(jobQueue, cliCtx.GetFromAddress(), message)
+		err := handleNewXrpTx(jobQueue, cliCtx.GetFromAddress(), message)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	// Subscribe to new txs on the XRP multisig ------------------------------------
@@ -76,7 +80,8 @@ func main() {
 	socket.SendText(`{"id": "Example watch Multisig Wallet","command": "subscribe","accounts": ["rs16hESfGChwAnK97oSdRJq4A18gcJbE7j"]}`)
 
 	// Start the Job Worker --------------------------------------------------------
-	go worker(jobQueue, txBldr, cliCtx, passphrase)
+	jobRunner := getJobRunner(txBldr, cliCtx, passphrase)
+	go worker(jobQueue, jobRunner)
 
 	// Handle shutdown -------------------------------------------------------------
 	for {
@@ -92,23 +97,26 @@ func main() {
 
 type Job = []sdk.Msg
 
-func handleNewXrpTx(jobQueue chan Job, validatorAddress sdk.AccAddress, message string) {
-	// Parse message into struct
+func handleNewXrpTx(jobQueue chan Job, validatorAddress sdk.AccAddress, message string) error {
+	// Parse message into struct, extract txHash
 	parsedMessage := parseMessage(message)
 	txHash := parsedMessage.Transaction.Hash
 
 	// Check message is good
-	// TODO
+	if len(txHash) != 0 {
 
-	// Create, sign and submit tx
-	msg := peg.NewMsgXrpTx(txHash, validatorAddress)
-	err := msg.ValidateBasic()
-	if err != nil {
-		panic(err)
+		// Create Msg
+		msg := peg.NewMsgXrpTx(txHash, validatorAddress)
+		err := msg.ValidateBasic()
+		if err != nil {
+			return err
+		}
+
+		// Add it to the queue to be submitted to the chain
+		job := []sdk.Msg{msg}
+		jobQueue <- job
 	}
-	job := []sdk.Msg{msg}
-	// enqueue a job
-	jobQueue <- job
+	return nil
 }
 
 func parseMessage(msg string) WebSocketXrpTransactionInfo {
@@ -118,11 +126,22 @@ func parseMessage(msg string) WebSocketXrpTransactionInfo {
 }
 
 // Simple job queue thing taken from https://www.opsdash.com/blog/job-queues-in-go.html
-func worker(jobQueue <-chan Job, txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string) {
+func worker(jobQueue <-chan Job, runJob func(Job)) {
 	for job := range jobQueue {
-		CompleteAndBroadcastTxCLI(txBldr, cliCtx, passphrase, job)
-
+		runJob(job)
 	}
+}
+
+func getJobRunner(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string) func(Job) {
+	return (func(job Job) {
+		log.Printf("Submiting new tx...")
+		err := CompleteAndBroadcastTxCLI(txBldr, cliCtx, passphrase, job)
+		if err != nil {
+			log.Printf("...failed %s", err)
+		} else {
+			log.Println("...done")
+		}
+	})
 }
 
 func newCLIContext(cdc *codec.Codec, kb cryptokeys.Keybase, keyName string) context.CLIContext {
@@ -181,7 +200,7 @@ func newTxBuilder(cdc *codec.Codec, kb cryptokeys.Keybase) authtxb.TxBuilder {
 }
 
 // TODO handle error cases
-// Function from cosmos-sdkclient/utils but modified to accept passphrase as arg rather than stopping to pull it from stdin
+// Function from cosmos-sdk/client/utils but modified to accept passphrase as arg rather than stopping to pull it from stdin
 func CompleteAndBroadcastTxCLI(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string, msgs []sdk.Msg) error {
 	txBldr, err := utils.PrepareTxBuilder(txBldr, cliCtx)
 	if err != nil {
