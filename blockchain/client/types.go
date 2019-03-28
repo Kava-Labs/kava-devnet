@@ -8,7 +8,7 @@ type WebSocketXrpTransactionInfo struct {
 	EngineResultMessage string `json:"engine_result_message"`
 	LedgerHash          string `json:"ledger_hash"`
 	LedgerIndex         int    `json:"ledger_index"`
-	Meta                []byte `json:"meta"`
+	Meta                []byte `json:"meta"` // TODO should this be removed
 	// struct {
 	// 	AffectedNodes []struct {
 	// 		ModifiedNode struct {
