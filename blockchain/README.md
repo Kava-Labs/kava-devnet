@@ -15,10 +15,11 @@
 
 ## Run (in separate windows)
 
-    usdxd start 
+    usdxd start
     client
 
-Send a xrp tx to the multisig using `node xrpPayToMultisig.js` in examples.
+Send a xrp tx to the multisig using `node xrpPayToMultisig.js` in `examples/js`.
+You will see the client process the transaction and sumbit it to the blockchain.
 
 Check account balance using `usdxcli query account usdx1cwd9fxrxvz5yq5qdrtscvmc4h0l7mqu9hldkfa`
 Querying won't work until there is at least one tx sent to that address.
