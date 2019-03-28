@@ -60,7 +60,7 @@ func main() {
 		log.Println("Connected to server")
 	}
 	socket.OnPingReceived = func(data string, socket gowebsocket.Socket) {
-		log.Println("Received ping - " + data)
+		log.Println("Received ping")
 	}
 	socket.OnPongReceived = func(data string, socket gowebsocket.Socket) {
 		log.Println("Received pong - " + data)
@@ -186,16 +186,16 @@ func newTxBuilder(cdc *codec.Codec, kb cryptokeys.Keybase) authtxb.TxBuilder {
 	gasPrices, _ := sdk.ParseDecCoins("")
 	// can't use struct literal because fields aren't exported, have to use new function.
 	txBldr := authtxb.NewTxBuilder(
-		utils.GetTxEncoder(cdc),     //txEncoder
-		0,                           //accountNumber
-		0,                           //sequence
+		utils.GetTxEncoder(cdc), //txEncoder
+		0, //accountNumber
+		0, //sequence
 		client.DefaultGasLimit,      //gas
 		client.DefaultGasAdjustment, //gasAdjustment
-		false,                       //simulateAndExecute //maybe
-		"usdx-test",                 //chainID
-		"",                          //memo
-		fees,                        //fees
-		gasPrices,                   //gasPrices
+		false,       //simulateAndExecute //maybe
+		"usdx-test", //chainID
+		"",          //memo
+		fees,        //fees
+		gasPrices,   //gasPrices
 	)
 	txBldr = txBldr.WithKeybase(kb) // NewTxBuilder doesn't allow this to be set from an arg, so has to be set afterwards
 	return txBldr
