@@ -22,7 +22,7 @@ import (
 )
 
 const (
-	appName = "nameservice"
+	appName = "usdx"
 )
 
 type usdxApp struct {

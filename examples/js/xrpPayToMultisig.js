@@ -18,18 +18,18 @@ const RippleAPI = require('ripple-lib').RippleAPI;
   const txJson = {
     source: {
       address: xrpUser.Address,
-      amount: {value: "1000000000", currency: 'drops'}
+      amount: {value: "1000000", currency: 'drops'}
     },
     destination: {
       address: multiSignAddress.Address,
       minAmount: {
-        value: '' + "1000000000",
+        value: '' + "1000000",
         currency: 'drops'
       }
     },
     memos: [
       {
-        "data": "usdxaddrrsGPNkSLt36BDLMgPAYKifFvCphQJZ2qJw"
+        "data": "usdx1cwd9fxrxvz5yq5qdrtscvmc4h0l7mqu9hldkfa"
       }
     ]
   }
@@ -44,4 +44,4 @@ const RippleAPI = require('ripple-lib').RippleAPI;
   // to recover:
   // Buffer.from("7573647861646472727347504E6B534C74333642444C4D675041594B69664676437068514A5A32714A77", "hex").toString()
 
-})()
+})().finally(() => {process.exit()})

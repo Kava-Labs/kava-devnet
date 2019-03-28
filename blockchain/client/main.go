@@ -2,19 +2,24 @@ package main
 
 import (
 	"encoding/json"
+	"fmt"
 	"log"
 	"os"
 	"os/signal"
+	"time"
 
 	"github.com/sacOO7/gowebsocket"
-
-	"github.com/cosmos/cosmos-sdk/client/context"
-	"github.com/cosmos/cosmos-sdk/client/utils"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtxb "github.com/cosmos/cosmos-sdk/x/auth/client/txbuilder"
-	"github.com/cosmos/cosmos-sdk/client/keys"
-
 	rpcclient "github.com/tendermint/tendermint/rpc/client"
+
+	"github.com/cosmos/cosmos-sdk/client"
+	"github.com/cosmos/cosmos-sdk/client/context"
+	"github.com/cosmos/cosmos-sdk/client/keys"
+	"github.com/cosmos/cosmos-sdk/client/utils"
+	"github.com/cosmos/cosmos-sdk/codec"
+	cryptokeys "github.com/cosmos/cosmos-sdk/crypto/keys"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	authtxb "github.com/cosmos/cosmos-sdk/x/auth/client/txbuilder"
 
 	"github.com/kava-labs/usdx/blockchain/app"
 	"github.com/kava-labs/usdx/blockchain/x/peg"
@@ -25,20 +30,25 @@ func main() {
 	interrupt := make(chan os.Signal, 1)
 	signal.Notify(interrupt, os.Interrupt)
 
+	// Create the job queue -------------------------------------------------------
+	// make a channel with a capacity of 100.
+	jobQueue := make(chan Job, 100)
+
 	// Setup SDK stuff -------------------------------------------------------------
-	cdc := app.MakeCodec()
-	// TODO
-	// create Keybase from dir - cosmos-sdk/client/keys#
-	kb, err := keys.NewKeyBaseFromDir("~/.usdxcli")
-	// set key name
-	validatorKeyName := "val"
-	// get key addr
-	validatorAddress := kb.Get(validatorKeyName).GetAddress() // sdk.AccAddress
-	// get key password - from stdin
-	passphrase, err := keys.GetPassphrase(validatorKeyName)
+	app.SetAddressPrefixes()
+	validatorKeyName := "validatorName" // not actually a validator, just a local account
+	kb, err := keys.NewKeyBaseFromDir(os.ExpandEnv("$HOME/.usdxcli"))
 	if err != nil {
 		panic(err)
 	}
+	passphrase, err := keys.ReadPassphraseFromStdin(validatorKeyName)
+	if err != nil {
+		panic(err)
+	}
+	// create custom configured CliContext and txBuilder
+	cdc := app.MakeCodec()
+	cliCtx := newCLIContext(cdc, kb, validatorKeyName)
+	txBldr := newTxBuilder(cdc, kb)
 
 	// Setup Websocket -------------------------------------------------------------
 	socket := gowebsocket.New("wss://s.altnet.rippletest.net:51233/")
@@ -50,7 +60,7 @@ func main() {
 		log.Println("Connected to server")
 	}
 	socket.OnPingReceived = func(data string, socket gowebsocket.Socket) {
-		log.Println("Received ping - " + data)
+		log.Println("Received ping")
 	}
 	socket.OnPongReceived = func(data string, socket gowebsocket.Socket) {
 		log.Println("Received pong - " + data)
@@ -60,12 +70,19 @@ func main() {
 	}
 	socket.OnTextMessage = func(message string, socket gowebsocket.Socket) {
 		log.Println("Received message - " + message)
-		handleNewXrpTx(validatorAddress, passphrase, message)
+		err := handleNewXrpTx(jobQueue, cliCtx.GetFromAddress(), message)
+		if err != nil {
+			log.Println(err)
+		}
 	}
 
 	// Subscribe to new txs on the XRP multisig ------------------------------------
 	socket.Connect()
 	socket.SendText(`{"id": "Example watch Multisig Wallet","command": "subscribe","accounts": ["rs16hESfGChwAnK97oSdRJq4A18gcJbE7j"]}`)
+
+	// Start the Job Worker --------------------------------------------------------
+	jobRunner := getJobRunner(txBldr, cliCtx, passphrase)
+	go worker(jobQueue, jobRunner)
 
 	// Handle shutdown -------------------------------------------------------------
 	for {
@@ -73,26 +90,34 @@ func main() {
 		case <-interrupt:
 			log.Println("interrupt")
 			socket.Close()
+			log.Printf("number of remaining jobs: %d", len(jobQueue))
 			return
 		}
 	}
 }
 
-func handleNewXrpTx(validatorAddress sdk.AccAddress, passphrase string, message string) {
-	// Parse message into struct
+type Job = []sdk.Msg
+
+func handleNewXrpTx(jobQueue chan Job, validatorAddress sdk.AccAddress, message string) error {
+	// Parse message into struct, extract txHash
 	parsedMessage := parseMessage(message)
 	txHash := parsedMessage.Transaction.Hash
 
 	// Check message is good
-	// TODO
+	if len(txHash) != 0 {
 
-	// Create, sign and submit tx
-	msg := peg.NewMsgXrpTx(txHash, validatorAddress)
-	err := msg.ValidateBasic()
-	if err != nil {
-		panic(err)
+		// Create Msg
+		msg := peg.NewMsgXrpTx(txHash, validatorAddress)
+		err := msg.ValidateBasic()
+		if err != nil {
+			return err
+		}
+
+		// Add it to the queue to be submitted to the chain
+		job := []sdk.Msg{msg}
+		jobQueue <- job
 	}
-	signAndSubmit(passphrase, []sdk.Msg{msg})
+	return nil
 }
 
 func parseMessage(msg string) WebSocketXrpTransactionInfo {
@@ -101,60 +126,113 @@ func parseMessage(msg string) WebSocketXrpTransactionInfo {
 	return txInfo
 }
 
-func signAndSubmit(passphrase string, msgs []sdk.Msg) {
-	// TODO replace some of below by creating a txBuilder at the top level then using it here to build and sign the txs
-	// Probably want to use some of the cliContext methods to fetch account and sequence numbers
-
-	// BuildAndSign
-	// 	Create StdSignMsg - bunch of details
-	stdSignMsg := authtxb.StdSignMsg{
-		ChainID:       bldr.chainID,
-		AccountNumber: bldr.accountNumber,
-		Sequence:      bldr.sequence,
-		Memo:          bldr.memo,
-		Msgs:          msgs,
-		Fee:           auth.NewStdFee(bldr.gas, fees),
+// Simple job queue thing taken from https://www.opsdash.com/blog/job-queues-in-go.html
+func worker(jobQueue <-chan Job, runJob func(Job)) {
+	for job := range jobQueue {
+		runJob(job)
 	}
-	// 	get signBytes and create auth.StdSignature (using helper function)
-	sig, err := authtxb.MakeSignature(kb, validatorKeyName, passphrase, stdSignMsg)
-	// 	create auth.StdTx
-	stdTx := auth.NewStdTx(msg.Msgs, msg.Fee, []auth.StdSignature{sig}, msg.Memo)
-	// 	encode it using txEncoder
-	txEncoder := utils.GetTxEncoder(cdc)
-	tx := txEncoder(stdTx)
+}
 
-	// BroadcastTx
-	// 	create / get node
-	node := rpcclient.NewHTTP("tcp://localhost:26657", "/websocket")
-	// 	submit transaction
-	res, err := node.BroadcastTxCommit(tx)
+func getJobRunner(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string) func(Job) {
+	return (func(job Job) {
+		log.Printf("Submiting new tx...")
+		time.Sleep(10 * time.Second) // hackityhackhack
+		err := CompleteAndBroadcastTxCLI(txBldr, cliCtx, passphrase, job)
+		if err != nil {
+			log.Printf("...failed %s", err)
+		} else {
+			log.Println("...done")
+		}
+	})
+}
+
+func newCLIContext(cdc *codec.Codec, kb cryptokeys.Keybase, keyName string) context.CLIContext {
+	nodeURI := "tcp://localhost:26657"
+	rpc := rpcclient.NewHTTP(nodeURI, "/websocket")
+	info, err := kb.Get(keyName)
 	if err != nil {
 		panic(err)
 	}
-	// 	Check it was delivered correctly
-	if res.CheckTx.IsOK() || res.DeliverTx.IsOK() {
-		panic("tx not included in block")
-	}
 
+	// TODO add any of the other args here?
+	cliCtx := context.CLIContext{
+		Codec:        cdc,
+		Client:       rpc,
+		Output:       os.Stdout,
+		NodeURI:      nodeURI,
+		AccountStore: auth.StoreKey,
+		From:         keyName,
+		//OutputFormat:  viper.GetString(cli.OutputFlag),
+		//Height:        viper.GetInt64(client.FlagHeight),
+		TrustNode:     true,
+		UseLedger:     false,
+		Async:         false,
+		PrintResponse: false,
+		//Verifier:      tmlite.Verifier{}, // nil value, don't want to verifying anything
+		Simulate:     false,
+		GenerateOnly: false,
+		FromAddress:  info.GetAddress(),
+		FromName:     keyName,
+		Indent:       false,
+	}
+	cliCtx = cliCtx.WithAccountDecoder(cdc)
+	return cliCtx
 }
 
-// NOTES
+func newTxBuilder(cdc *codec.Codec, kb cryptokeys.Keybase) authtxb.TxBuilder {
+	// These field values all come from default cli flag values
 
-// CLI
-// cliContext - stuff about command line flags, txBuilder - maintain sequence numbers n stuff.
-// txBytes = txBldr.BuildAndSign(fromName, passphrase, msgs)
-// cliCtx.BroadcastTx(txBytes)
-// REST
-// rest handler functions in all the modules just return a json tx. They don't submit anything.
-// looks like the lcd doesn't ever submit txs
-// rest server itself creates a cliContext
-// creates new txBldr using sequence num from http request
-// uses txBuilder
+	fees, _ := sdk.ParseCoins("")
+	gasPrices, _ := sdk.ParseDecCoins("")
+	// can't use struct literal because fields aren't exported, have to use new function.
+	txBldr := authtxb.NewTxBuilder(
+		utils.GetTxEncoder(cdc), //txEncoder
+		0, //accountNumber
+		0, //sequence
+		client.DefaultGasLimit,      //gas
+		client.DefaultGasAdjustment, //gasAdjustment
+		false,       //simulateAndExecute //maybe
+		"usdx-test", //chainID
+		"",          //memo
+		fees,        //fees
+		gasPrices,   //gasPrices
+	)
+	txBldr = txBldr.WithKeybase(kb) // NewTxBuilder doesn't allow this to be set from an arg, so has to be set afterwards
+	return txBldr
+}
 
-/*
-TODO
- - better error handling
- - find alternative to passing password around everywhere (look at what validators use for their private keys)
- - tidy up tx submission functions to get more general
- - handle concurrency
-*/
+// TODO handle error cases
+// Function from cosmos-sdk/client/utils but modified to accept passphrase as arg rather than stopping to pull it from stdin
+func CompleteAndBroadcastTxCLI(txBldr authtxb.TxBuilder, cliCtx context.CLIContext, passphrase string, msgs []sdk.Msg) error {
+	txBldr, err := utils.PrepareTxBuilder(txBldr, cliCtx)
+	if err != nil {
+		return err
+	}
+
+	fromName := cliCtx.GetFromName()
+
+	if txBldr.SimulateAndExecute() || cliCtx.Simulate {
+		txBldr, err = utils.EnrichWithGas(txBldr, cliCtx, msgs)
+		if err != nil {
+			return err
+		}
+
+		gasEst := utils.GasEstimateResponse{GasEstimate: txBldr.Gas()}
+		fmt.Fprintf(os.Stderr, "%s\n", gasEst.String())
+	}
+
+	if cliCtx.Simulate {
+		return nil
+	}
+
+	// build and sign the transaction
+	txBytes, err := txBldr.BuildAndSign(fromName, passphrase, msgs)
+	if err != nil {
+		return err
+	}
+
+	// broadcast to a Tendermint node
+	res, err := cliCtx.BroadcastTx(txBytes)
+	log.Printf("Tx submission response: %s", res)
+	return err
+}
