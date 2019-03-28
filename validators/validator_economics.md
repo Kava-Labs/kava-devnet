@@ -1,16 +1,16 @@
 ## USDX Validator Economics
 
-The USDX blockchain is a decentralized protocol for creating an XRP peg zone and a stable asset called USDX backed by pegged XRP (pXRP). Similar to Ether in Single Collateral Dai, users of the USDX blockchain lock pXRP into collateralized debt positions (CDPs) and are able to draw the USDX stable coin against the CDPs. The USDX blockchain is built using the Cosmos-sdk and will implement the USDX stable coin system as a series of modules built on the SDK, rather than smart contracts built on the EVM. The native token of the USDX blockchain is XRS, a governance and validation token that is staked by validators, who vote on blocks and participate in governance.
+USDX is a XRP-Backed stablecoin. The USDX stablecoin system is implemented as a Cosmos Zone designed to peg in XRP, issue an XRP-collateralized token (called USDX) and dynamically maintain its price stability to USD with decentralized mechanisms. The native token of the USDX blockchain is XRS, a governance and validation taken that is staked by validators, who vote on blocks and participate in governance.
 
 ## Validator Overview
 For an introduction to staking see the (Cosmos Validator FAQ)[https://github.com/cosmos/cosmos/blob/master/VALIDATORS_FAQ.md]
 Validators of the USDX blockchain must meet two basic requirements:
 
-1. Run the correct version of the USDX software. This means that the validator must be highly available and the validators private keys must not be compromised. Validators who run incorrect software or are compromised are subject to slashing.
+1. Run the correct version of the USDX software in a secure, high availability validator setup. This means that the validator must be highly available and the validators private keys must not be compromised. Validators who run incorrect software or are compromised are subject to slashing. This normally involves dedicated hardware, HSMs, secure colocation, and DDoS protection through sentry nodes.
 2. Participate in governance of the USDX protocol. This includes voting on all governance proposals. Governance proposals will control the parameters of the collateral backed stable coin and decisions to upgrade the USDX software and protocol.
 
 ### Staking and Delegation
-Validators can stake XRS directly or have XRS delegated to them. There is so minimum number of XRS required to validate, and the top 100 validators by weight (self-delegated plus delegated XRS) will be eligible to validate the USDX blockchain.
+Validators can stake XRS directly or have XRS delegated to them. There is no minimum number of XRS required to validate, and the top 100 validators by weight (self-delegated plus delegated XRS) will be eligible to validate the USDX blockchain.
 
 ## XRS Token Economics
 
@@ -22,16 +22,26 @@ When USDX users send pXRP collateral to the USDX collateralized debt position (C
 
 #### Example
 
-If CDP users close CDPs worth 10 million USDX during the first year of operation, then 100,000 USDX worth of XRS will be burned during the first year of operation. Assuming a 10 million USDX market cap of XRS and an initial total supply of 100,000,000 XRS, 1,000,000 XRS would be burned during the first year of operation of the USDX blockchain.
+If CDP users close CDPs worth 10 million USDX during the first year of operation, then 100,000 USDX worth of XRS will be burned during the first year of operation. Assuming a 10 million USDX market cap of XRS and an initial total supply of 100,000,000 XRS, then 1,000,000 XRS would be burned during the first year of operation of the USDX blockchain.
 
 
-## Investment and Vesting Period
-Validators participating in the XRS token sale can buy XRS tokens with the following vesting and commitments:
+## XRS Token Price and Validator Incentives
+
+### XRS Price and Distribution
 
 XRS total supply: 100,000,000
-XRS available to validators: 10,000,000 for direct investment plus vesting tokens
-XRS token price: 0.10 USD/XRS
+XRS available to validators: 10,000,000
+XRS token pre-sale price: 0.10 USD/XRS
 XRS pre-sale market cap: $10 Million
 
+### USDX Validation Incentives
 
-Validators can receive up to 10 additional XRS tokens per $1 USD invested. This investment is subject to a 2 year vesting schedule and is tied to validation of the USDX blockchain. At the end of each thirty (30) day period, validators will receive a distribution of XRS tokens proportional to the number of pre-commits they have signed during the thirty day period. For example, if a validator investor has a total vest of 1,216.667 XRS tokens, they can receive a maximum of 50,000 XRS tokens at the end of each 30 day period. If they sign 90% of pre-commits during a 30 day period, they would receive 45,000 XRS tokens.
+Validators purchasing XRS tokens are additionally allocated one (1) XRS token (“Validator Allocation”) for every pre-sale XRS token they purchase. Validator Allocation is subject to a 720 day vesting schedule, under which 1/24th of the total allocation will vest at the end of each thirty (30) day period (“Vesting Period”) after the vesting commencement date. Allocation is additionally subject to blockchain validation. For every Vesting Period, validators will receive the percentage of Validator Allocation in that Vesting Period directly proportional to the number of pre-commits they have signed during that Vesting Period. The vesting commencement date occurs at USDX mainnet launch.
+
+#### Example
+1. A validator purchases 240,000 XRS tokens.
+2. They will be allocated a maximum additional 240,000 XRS tokens as Validator Allocation in the following way:
+    * At the launch of USDX mainnet, the 240,000 XRS tokens are reserved.
+    * At the end of the first Vesting Period (30 days) 10,000 XRS tokens vest (240,000XRS/24). If the validator signed 90% of pre-commits during this first Vesting Period they will be distributed 9,000 XRS and are no longer eligible for the remaining 1,000 XRS vested in that period.
+    * On the second Vesting Period another 10,000 XRS tokens vest. If the validator signed 95% of pre-commits during during this second Vesting Period they will be distributed 9,500 XRS and are no longer eligible for the remaining 500 XRS in that period.
+    * This process repeats for the remaining Vesting Periods in the 720 day vesting schedule.
