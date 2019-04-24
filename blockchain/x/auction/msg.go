@@ -40,13 +40,13 @@ func (msg MsgStartAuction) GetSigners() []sdk.AccAddress {
 }
 
 type MsgPlaceBid struct {
-	AuctionID []byte // TODO type
+	AuctionID auctionID
 	Bidder    sdk.AccAddress
 	Bid       sdk.Coins
 }
 
 // NewMsgPlaceBid returns a new MsgPlaceBid.
-func NewMsgPlaceBid(auctionID []byte, bidder sdk.AccAddress, bid sdk.Coins) MsgPlaceBid {
+func NewMsgPlaceBid(auctionID auctionID, bidder sdk.AccAddress, bid sdk.Coins) MsgPlaceBid {
 	return MsgPlaceBid{
 		AuctionID: auctionID,
 		Bidder:    bidder,
