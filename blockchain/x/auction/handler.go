@@ -21,11 +21,21 @@ func NewHandler(keeper Keeper) sdk.Handler {
 }
 
 func handleMsgStartAuction(ctx sdk.Context, keeper Keeper, msg MsgStartAuction) sdk.Result {
-	// TODO
+
+	err := keeper.createAuction(msg.Seller, msg.Amount, msg.EndTime)
+	if err != nil {
+		return err.Result()
+	}
+
 	return sdk.Result{}
 }
 
 func handleMsgPlaceBid(ctx sdk.Context, keeper Keeper, msg MsgPlaceBid) sdk.Result {
-	// TODO
+
+	err := keeper.placeBid(msg.AuctionID, msg.Bidder, msg.Bid)
+	if err != nil {
+		return err.Result()
+	}
+
 	return sdk.Result{}
 }
