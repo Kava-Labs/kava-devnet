@@ -8,6 +8,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 )
 
+const (
+	maxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time
+	bidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name
+)
+
 type Keeper struct {
 	bankKeeper bank.Keeper
 	storeKey   sdk.StoreKey
@@ -24,8 +29,8 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bank.Keeper, storeKey sdk.StoreKey) 
 	}
 }
 
-// StartAuction creates and starts an auction that ends at `endTime`.
-func (k Keeper) StartAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk.Coins, endtime endTime) sdk.Error {
+// StartAuction creates and starts an auction.
+func (k Keeper) StartAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk.Coins) sdk.Error {
 	// TODO validation
 
 	// subtract coins from seller
@@ -35,11 +40,13 @@ func (k Keeper) StartAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk.
 	}
 	// create auction struct
 	newAuctionID, _ := k.getNewAuctionID(ctx) // TODO if this fails then need to unsubtract coins above
+	endTime := endTime(ctx.BlockHeight()) + maxAuctionDuration
 	auction := Auction{
 		ID:           newAuctionID,
 		Seller:       seller,
 		Amount:       amount,
-		EndTime:      endtime,
+		EndTime:      endTime,
+		MaxEndTime:   endTime,
 		LatestBidder: seller,                // send the proceeds back to the seller if no one bids, and send the first bid
 		LatestBid:    sdk.Coins{sdk.Coin{}}, // TODO check this doesn't cause problems if auction closed without any bids
 	}
@@ -86,6 +93,8 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 			}
 			auction.LatestBidder = bidder
 			auction.LatestBid = bid
+			newEndTime := endTime(ctx.BlockHeight()) + bidDuration
+			auction.EndTime = endTime(min(int64(newEndTime), int64(auction.MaxEndTime))) // TODO is there a better way to structure these types?
 		}
 	} else {
 		return sdk.ErrInternal("bid size not greater than existing bid") // TODO custom error types?

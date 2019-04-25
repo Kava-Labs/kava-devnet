@@ -22,7 +22,7 @@ func NewHandler(keeper Keeper) sdk.Handler {
 
 func handleMsgStartAuction(ctx sdk.Context, keeper Keeper, msg MsgStartAuction) sdk.Result {
 
-	err := keeper.StartAuction(ctx, msg.Seller, msg.Amount, msg.EndTime)
+	err := keeper.StartAuction(ctx, msg.Seller, msg.Amount)
 	if err != nil {
 		return err.Result()
 	}

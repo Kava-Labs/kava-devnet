@@ -3,17 +3,16 @@ package auction
 import sdk "github.com/cosmos/cosmos-sdk/types"
 
 type MsgStartAuction struct {
-	Seller  sdk.AccAddress
-	Amount  sdk.Coins
-	EndTime endTime
+	Seller sdk.AccAddress
+	Amount sdk.Coins
+	// TODO add starting bid amount?
 }
 
 // NewMsgStartAuction returns a new MsgStartAuction.
-func NewMsgStartAuction(seller sdk.AccAddress, amount sdk.Coins, endtime endTime) MsgStartAuction {
+func NewMsgStartAuction(seller sdk.AccAddress, amount sdk.Coins) MsgStartAuction {
 	return MsgStartAuction{
-		Seller:  seller,
-		Amount:  amount,
-		EndTime: endtime,
+		Seller: seller,
+		Amount: amount,
 	}
 }
 
