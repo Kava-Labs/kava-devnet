@@ -24,7 +24,8 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bank.Keeper, storeKey sdk.StoreKey) 
 	}
 }
 
-func (k Keeper) createAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk.Coins, endtime endTime) sdk.Error {
+// StartAuction creates and starts an auction that ends at `endTime`.
+func (k Keeper) StartAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk.Coins, endtime endTime) sdk.Error {
 	// TODO validation
 
 	// subtract coins from seller
@@ -48,7 +49,8 @@ func (k Keeper) createAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk
 	return nil
 }
 
-func (k Keeper) placeBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAddress, bid sdk.Coins) sdk.Error {
+// PlaceBid places a bid on an auction.
+func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAddress, bid sdk.Coins) sdk.Error {
 	// TODO validation
 
 	// get auction from store
@@ -90,7 +92,8 @@ func (k Keeper) placeBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 	return nil
 }
 
-func (k Keeper) closeAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
+// CloseAuction closes an auction and distributes funds to the seller and highest bidder.
+func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 	// TODO check if auction has timed out?
 
 	// get the auction from the store
@@ -113,6 +116,9 @@ func (k Keeper) closeAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 
 	return nil
 }
+
+// ---------- Store methods ----------
+// Use these to add and remove auction from the store.
 
 // getNewAuctionID gets the next available AuctionID and increments it
 func (k Keeper) getNewAuctionID(ctx sdk.Context) (auctionID, sdk.Error) {
@@ -176,6 +182,9 @@ func (k Keeper) deleteAuction(ctx sdk.Context, auctionID auctionID) {
 	store.Delete(k.getAuctionKey(auctionID))
 }
 
+// ---------- Queue and key methods ----------
+// These are lower level function used by the store methods above.
+
 func (k Keeper) getNextAuctionIDKey() []byte {
 	return []byte("nextAuctionID")
 }
@@ -202,8 +211,8 @@ func (k Keeper) removeFromQueue(ctx sdk.Context, endTime endTime, auctionID auct
 	store.Delete(getQueueElementKey(endTime, auctionID))
 }
 
-// Returns an iterator for all the proposals in the Active Queue that expire by endTime
-func (k Keeper) getQueueIterator(ctx sdk.Context, endTime endTime) sdk.Iterator { // "getAuctionsByExpiry"
+// Returns an iterator for all the auctions in the queue that expire by endTime
+func (k Keeper) getQueueIterator(ctx sdk.Context, endTime endTime) sdk.Iterator { // TODO rename to "getAuctionsByExpiry" ?
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// get an interator
@@ -232,5 +241,3 @@ func getQueueElementKey(endTime endTime, auctionID auctionID) []byte {
 		sdk.Uint64ToBigEndian(uint64(auctionID)),
 	}, keyDelimiter)
 }
-
-// ctx.BlockHeight() int64
