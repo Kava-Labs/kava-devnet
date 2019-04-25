@@ -40,7 +40,7 @@ func (k Keeper) StartAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk.
 		Seller:       seller,
 		Amount:       amount,
 		EndTime:      endtime,
-		LatestBidder: seller,                // send the proceeds back to the seller if no one bids
+		LatestBidder: seller,                // send the proceeds back to the seller if no one bids, and send the first bid
 		LatestBid:    sdk.Coins{sdk.Coin{}}, // TODO check this doesn't cause problems if auction closed without any bids
 	}
 	// store auction (also adds it to the queue)
@@ -78,6 +78,11 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 			_, _, err = k.bankKeeper.SubtractCoins(ctx, bidder, bid)
 			if err != nil {
 				return err // TODO This shouldn't fail but it's bad if it does. What is the best way to handle this?
+			}
+			// Add difference to the seller
+			_, _, err = k.bankKeeper.AddCoins(ctx, auction.Seller, bid.Minus(auction.LatestBid))
+			if err != nil {
+				return err // TODO this should also not fail
 			}
 			auction.LatestBidder = bidder
 			auction.LatestBid = bid
