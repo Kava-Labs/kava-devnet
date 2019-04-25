@@ -5,11 +5,11 @@ import sdk "github.com/cosmos/cosmos-sdk/types"
 type MsgStartAuction struct {
 	Seller  sdk.AccAddress
 	Amount  sdk.Coins
-	EndTime sdk.Int // TODO find best type
+	EndTime endTime
 }
 
 // NewMsgStartAuction returns a new MsgStartAuction.
-func NewMsgStartAuction(seller sdk.AccAddress, amount sdk.Coins, endtime sdk.Int) MsgStartAuction {
+func NewMsgStartAuction(seller sdk.AccAddress, amount sdk.Coins, endtime endTime) MsgStartAuction {
 	return MsgStartAuction{
 		Seller:  seller,
 		Amount:  amount,
