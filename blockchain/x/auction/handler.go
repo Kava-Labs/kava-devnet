@@ -9,8 +9,6 @@ import (
 func NewHandler(keeper Keeper) sdk.Handler {
 	return func(ctx sdk.Context, msg sdk.Msg) sdk.Result {
 		switch msg := msg.(type) {
-		case MsgStartAuction:
-			return handleMsgStartAuction(ctx, keeper, msg)
 		case MsgPlaceBid:
 			return handleMsgPlaceBid(ctx, keeper, msg)
 		default:
@@ -20,19 +18,9 @@ func NewHandler(keeper Keeper) sdk.Handler {
 	}
 }
 
-func handleMsgStartAuction(ctx sdk.Context, keeper Keeper, msg MsgStartAuction) sdk.Result {
-
-	err := keeper.StartAuction(ctx, msg.Seller, msg.Amount)
-	if err != nil {
-		return err.Result()
-	}
-
-	return sdk.Result{}
-}
-
 func handleMsgPlaceBid(ctx sdk.Context, keeper Keeper, msg MsgPlaceBid) sdk.Result {
 
-	err := keeper.PlaceBid(ctx, msg.AuctionID, msg.Bidder, msg.Bid)
+	err := keeper.PlaceBid(ctx, msg.AuctionID, msg.Bidder, msg.Bid, msg.Lot)
 	if err != nil {
 		return err.Result()
 	}

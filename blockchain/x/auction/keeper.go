@@ -8,11 +8,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 )
 
-const (
-	maxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time
-	bidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name
-)
-
 type Keeper struct {
 	bankKeeper bank.Keeper
 	storeKey   sdk.StoreKey
@@ -29,36 +24,75 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bank.Keeper, storeKey sdk.StoreKey) 
 	}
 }
 
-// StartAuction creates and starts an auction.
-func (k Keeper) StartAuction(ctx sdk.Context, seller sdk.AccAddress, amount sdk.Coins) sdk.Error {
-	// TODO validation
+// TODO these 3 start functions are almost identical. Can they be combined?
+func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin) sdk.Error {
+	// create auction
+	auction, coinOutputs := NewForwardAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration)
 
-	// subtract coins from seller
-	_, _, err := k.bankKeeper.SubtractCoins(ctx, seller, amount)
+	// get ID
+	newAuctionID, err := k.getNewAuctionID(ctx)
 	if err != nil {
 		return err
 	}
-	// create auction struct
-	newAuctionID, _ := k.getNewAuctionID(ctx) // TODO if this fails then need to unsubtract coins above
-	endTime := endTime(ctx.BlockHeight()) + maxAuctionDuration
-	auction := Auction{
-		ID:           newAuctionID,
-		Seller:       seller,
-		Amount:       amount,
-		EndTime:      endTime,
-		MaxEndTime:   endTime,
-		LatestBidder: seller,                // send the proceeds back to the seller if no one bids, and send the first bid
-		LatestBid:    sdk.Coins{sdk.Coin{}}, // TODO check this doesn't cause problems if auction closed without any bids
-	}
-	// store auction (also adds it to the queue)
-	k.setAuction(ctx, auction)
+	// set ID
+	auction.SetID(newAuctionID)
 
+	// subtract coins from initiator
+	for _, output := range coinOutputs {
+		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
+	}
+
+	// store auction
+	k.setAuction(ctx, auction)
+	return nil
+}
+
+func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin) sdk.Error {
+	// create auction
+	auction, coinOutputs := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+maxAuctionDuration)
+
+	// get ID
+	newAuctionID, err := k.getNewAuctionID(ctx)
+	if err != nil {
+		return err
+	}
+	// set ID
+	auction.SetID(newAuctionID)
+
+	// subtract coins from initiator
+	for _, output := range coinOutputs {
+		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
+	}
+
+	// store auction
+	k.setAuction(ctx, auction)
+	return nil
+}
+
+func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, maxBid sdk.Coin, otherPerson sdk.AccAddress) sdk.Error {
+	// create auction
+	auction, coinOutputs := NewForwardReverseAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
+
+	// get ID
+	newAuctionID, err := k.getNewAuctionID(ctx)
+	if err != nil {
+		return err
+	}
+	// set ID
+	auction.SetID(newAuctionID)
+
+	// subtract coins from initiator
+	for _, output := range coinOutputs {
+		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
+	}
+
+	// store auction
+	k.setAuction(ctx, auction)
 	return nil
 }
 
 // PlaceBid places a bid on an auction.
-func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAddress, bid sdk.Coins) sdk.Error {
-	// TODO validation
+func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAddress, bid sdk.Coin, lot sdk.Coin) sdk.Error {
 
 	// get auction from store
 	auction, found := k.getAuction(ctx, auctionID)
@@ -66,38 +100,18 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 		return sdk.ErrInternal("auction doesn't exist") // TODO custom error types ?
 	}
 
-	// check if new bid ok and update the auction
-	if bid.IsAllGT(auction.LatestBid) { // TODO implement min bid size ?
-		// check is bidder has enough total funds
-		// catch the edge case where a bidder is incrementing their own bid, but doesn't have much funds in their account
-		availableFunds := k.bankKeeper.GetCoins(ctx, bidder)
-		if auction.LatestBidder.Equals(bidder) {
-			availableFunds = availableFunds.Plus(auction.LatestBid)
-		}
-		if availableFunds.IsAllGTE(bid) {
-			// update bid
-			// return previous bidder's funds (can be back to current bidder if someone is updating their bid)
-			_, _, err := k.bankKeeper.AddCoins(ctx, auction.LatestBidder, auction.LatestBid)
-			if err != nil {
-				return err // failing here is ok
-			}
-			// add new bidder's coins to the auction
-			_, _, err = k.bankKeeper.SubtractCoins(ctx, bidder, bid)
-			if err != nil {
-				return err // TODO This shouldn't fail but it's bad if it does. What is the best way to handle this?
-			}
-			// Add difference to the seller
-			_, _, err = k.bankKeeper.AddCoins(ctx, auction.Seller, bid.Minus(auction.LatestBid))
-			if err != nil {
-				return err // TODO this should also not fail
-			}
-			auction.LatestBidder = bidder
-			auction.LatestBid = bid
-			newEndTime := endTime(ctx.BlockHeight()) + bidDuration
-			auction.EndTime = endTime(min(int64(newEndTime), int64(auction.MaxEndTime))) // TODO is there a better way to structure these types?
-		}
-	} else {
-		return sdk.ErrInternal("bid size not greater than existing bid") // TODO custom error types?
+	// place bid
+	coinOutputs, coinInputs, err := auction.PlaceBid(endTime(ctx.BlockHeight()), bidder, lot, bid) // update auction according to what type of auction it is // TODO should this return updated Auction to be more immutable?
+	if err != nil {
+		return err
+	}
+	// sub outputs
+	for _, output := range coinOutputs {
+		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
+	}
+	// add inputs
+	for _, input := range coinInputs {
+		_, _, _ = k.bankKeeper.AddCoins(ctx, input.Address, sdk.Coins{input.Coin}) // TODO handle errors
 	}
 
 	// store updated auction
@@ -108,23 +122,21 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 
 // CloseAuction closes an auction and distributes funds to the seller and highest bidder.
 func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
-	// TODO check if auction has timed out?
 
 	// get the auction from the store
 	auction, found := k.getAuction(ctx, auctionID)
 	if !found {
 		return sdk.ErrInternal("auction doesn't exist") // TODO custom error types ?
 	}
-	// send bidder's funds to seller
-	_, _, err := k.bankKeeper.AddCoins(ctx, auction.Seller, auction.LatestBid)
-	if err != nil {
-		return err
+	// check if auction has timed out
+	if auction.HasEnded(endTime(ctx.BlockHeight())) {
+		return sdk.ErrInternal("auction has already ended")
 	}
-	// send seller's funds to bidder
-	_, _, err = k.bankKeeper.AddCoins(ctx, auction.LatestBidder, auction.Amount)
-	if err != nil {
-		return err
+	// payout to the last bidder
+	for _, input := range auction.GetPayout() {
+		_, _, _ = k.bankKeeper.AddCoins(ctx, input.Address, sdk.Coins{input.Coin}) // TODO handle errors
 	}
+
 	// delete auction from store (and queue)
 	k.deleteAuction(ctx, auctionID)
 
@@ -157,28 +169,30 @@ func (k Keeper) getNewAuctionID(ctx sdk.Context) (auctionID, sdk.Error) {
 // it overwrites any pre-existing auction with same ID
 func (k Keeper) setAuction(ctx sdk.Context, auction Auction) {
 	// remove the auction from the queue if it is already in there
-	existingAuction, found := k.getAuction(ctx, auction.ID)
+	existingAuction, found := k.getAuction(ctx, auction.GetID())
 	if found {
-		k.removeFromQueue(ctx, existingAuction.EndTime, existingAuction.ID)
+		k.removeFromQueue(ctx, existingAuction.GetEndTime(), existingAuction.GetID())
 	}
 
 	// store auction
 	store := ctx.KVStore(k.storeKey)
 	bz := k.cdc.MustMarshalBinaryLengthPrefixed(auction)
-	store.Set(k.getAuctionKey(auction.ID), bz)
+	store.Set(k.getAuctionKey(auction.GetID()), bz)
 
 	// add to the queue
-	k.insertIntoQueue(ctx, auction.EndTime, auction.ID)
+	k.insertIntoQueue(ctx, auction.GetEndTime(), auction.GetID())
 }
 
 // getAuction gets an auction from the store by auctionID
 func (k Keeper) getAuction(ctx sdk.Context, auctionID auctionID) (Auction, bool) {
+	var auction Auction
+
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(k.getAuctionKey(auctionID))
 	if bz == nil {
-		return Auction{}, false // TODO what is the correct behavior when an auction is not found? gov module follows this pattern of returning a bool
+		return auction, false // TODO what is the correct behavior when an auction is not found? gov module follows this pattern of returning a bool
 	}
-	var auction Auction
+
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &auction)
 	return auction, true
 }
@@ -188,7 +202,7 @@ func (k Keeper) deleteAuction(ctx sdk.Context, auctionID auctionID) {
 	// remove from queue
 	auction, found := k.getAuction(ctx, auctionID)
 	if found {
-		k.removeFromQueue(ctx, auction.EndTime, auctionID)
+		k.removeFromQueue(ctx, auction.GetEndTime(), auctionID)
 	}
 
 	// delete auction
