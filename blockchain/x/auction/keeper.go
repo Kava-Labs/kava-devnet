@@ -24,57 +24,47 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bank.Keeper, storeKey sdk.StoreKey) 
 	}
 }
 
-// TODO these 3 start functions are almost identical. Can they be combined?
+// TODO these 3 start functions be combined or abstracted away?
+
+// StartForwardAuction starts a normal auction. Known as flap in maker.
 func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin) sdk.Error {
 	// create auction
-	auction, coinOutputs := NewForwardAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration)
-
-	// get ID
-	newAuctionID, err := k.getNewAuctionID(ctx)
+	auction, initiatorOutput := NewForwardAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	// start the auction
+	err := k.startAuction(ctx, auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
-	// set ID
-	auction.SetID(newAuctionID)
-
-	// subtract coins from initiator
-	for _, output := range coinOutputs {
-		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
-	}
-
-	// store auction
-	k.setAuction(ctx, auction)
 	return nil
 }
 
+// StartReverseAuction starts an auction where sellers compete by offering decreasing prices. Known as flop in maker.
 func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin) sdk.Error {
 	// create auction
-	auction, coinOutputs := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+maxAuctionDuration)
-
-	// get ID
-	newAuctionID, err := k.getNewAuctionID(ctx)
+	auction, initiatorOutput := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	// start the auction
+	err := k.startAuction(ctx, auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
-	// set ID
-	auction.SetID(newAuctionID)
-
-	// subtract coins from initiator
-	for _, output := range coinOutputs {
-		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
-	}
-
-	// store auction
-	k.setAuction(ctx, auction)
 	return nil
 }
 
+// StartForwardReverseAuction starts an auction where bidders bid up to a maxBid, then switch to bidding down on price. Known as flip in maker.
 func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, maxBid sdk.Coin, otherPerson sdk.AccAddress) sdk.Error {
 	// create auction
-	auction, coinOutputs := NewForwardReverseAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
+	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
+	// start the auction
+	err := k.startAuction(ctx, auction, initiatorOutput)
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
+func (k Keeper) startAuction(ctx sdk.Context, auction Auction, initiatorOutput bankOutput) sdk.Error {
 	// get ID
-	newAuctionID, err := k.getNewAuctionID(ctx)
+	newAuctionID, err := k.getNextAuctionID(ctx)
 	if err != nil {
 		return err
 	}
@@ -82,22 +72,24 @@ func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddres
 	auction.SetID(newAuctionID)
 
 	// subtract coins from initiator
-	for _, output := range coinOutputs {
-		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
+	_, _, err = k.bankKeeper.SubtractCoins(ctx, initiatorOutput.Address, sdk.Coins{initiatorOutput.Coin})
+	if err != nil {
+		return err
 	}
 
 	// store auction
 	k.setAuction(ctx, auction)
+	k.incrementNextAuctionID(ctx)
 	return nil
 }
 
-// PlaceBid places a bid on an auction.
+// PlaceBid places a bid on any auction.
 func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAddress, bid sdk.Coin, lot sdk.Coin) sdk.Error {
 
 	// get auction from store
 	auction, found := k.getAuction(ctx, auctionID)
 	if !found {
-		return sdk.ErrInternal("auction doesn't exist") // TODO custom error types ?
+		return sdk.ErrInternal("auction doesn't exist")
 	}
 
 	// place bid
@@ -107,11 +99,17 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 	}
 	// sub outputs
 	for _, output := range coinOutputs {
-		_, _, _ = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors
+		_, _, err = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors properly here. All coin transfers should be atomic. InputOutputCoins may work
+		if err != nil {
+			panic(err)
+		}
 	}
 	// add inputs
 	for _, input := range coinInputs {
-		_, _, _ = k.bankKeeper.AddCoins(ctx, input.Address, sdk.Coins{input.Coin}) // TODO handle errors
+		_, _, err = k.bankKeeper.AddCoins(ctx, input.Address, sdk.Coins{input.Coin}) // TODO errors
+		if err != nil {
+			panic(err)
+		}
 	}
 
 	// store updated auction
@@ -126,15 +124,17 @@ func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 	// get the auction from the store
 	auction, found := k.getAuction(ctx, auctionID)
 	if !found {
-		return sdk.ErrInternal("auction doesn't exist") // TODO custom error types ?
+		return sdk.ErrInternal("auction doesn't exist")
 	}
 	// check if auction has timed out
-	if auction.HasEnded(endTime(ctx.BlockHeight())) {
+	if ctx.BlockHeight() > int64(auction.GetEndTime()) { // TODO > or ≥ ?
 		return sdk.ErrInternal("auction has already ended")
 	}
 	// payout to the last bidder
-	for _, input := range auction.GetPayout() {
-		_, _, _ = k.bankKeeper.AddCoins(ctx, input.Address, sdk.Coins{input.Coin}) // TODO handle errors
+	coinInput := auction.GetPayout()
+	_, _, err := k.bankKeeper.AddCoins(ctx, coinInput.Address, sdk.Coins{coinInput.Coin})
+	if err != nil {
+		return err
 	}
 
 	// delete auction from store (and queue)
@@ -146,8 +146,8 @@ func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 // ---------- Store methods ----------
 // Use these to add and remove auction from the store.
 
-// getNewAuctionID gets the next available AuctionID and increments it
-func (k Keeper) getNewAuctionID(ctx sdk.Context) (auctionID, sdk.Error) {
+// getNextAuctionID gets the next available global AuctionID
+func (k Keeper) getNextAuctionID(ctx sdk.Context) (auctionID, sdk.Error) { // TODO don't need error return here
 	// get next ID from store
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(k.getNextAuctionIDKey())
@@ -155,14 +155,28 @@ func (k Keeper) getNewAuctionID(ctx sdk.Context) (auctionID, sdk.Error) {
 		panic("initial auctionID never set in genesis")
 		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set") // TODO is this needed? Why not just set it zero here?
 	}
-	var newAuctionID auctionID
-	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &newAuctionID)
+	var auctionID auctionID
+	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &auctionID)
+	return auctionID, nil
+}
+
+// incrementNextAuctionID increments the global ID in the store by 1
+func (k Keeper) incrementNextAuctionID(ctx sdk.Context) sdk.Error {
+	// get next ID from store
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get(k.getNextAuctionIDKey())
+	if bz == nil {
+		panic("initial auctionID never set in genesis")
+		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set") // TODO is this needed? Why not just set it zero here?
+	}
+	var auctionID auctionID
+	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &auctionID)
 
 	// increment the stored next ID
-	bz = k.cdc.MustMarshalBinaryLengthPrefixed(newAuctionID + 1)
+	bz = k.cdc.MustMarshalBinaryLengthPrefixed(auctionID + 1)
 	store.Set(k.getNextAuctionIDKey(), bz)
 
-	return newAuctionID, nil
+	return nil
 }
 
 // setAuction puts the auction into the database and adds it to the queue

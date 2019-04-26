@@ -7,7 +7,6 @@ import (
 const (
 	maxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time
 	bidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name
-
 )
 
 // Auction is an interface to several types of auction.
@@ -16,8 +15,7 @@ type Auction interface {
 	SetID(auctionID)
 	PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error)
 	GetEndTime() endTime
-	HasEnded(currentBlockHeight endTime) bool // TODO needed?
-	GetPayout() []bankInput
+	GetPayout() bankInput
 }
 type baseAuction struct {
 	ID         auctionID
@@ -44,19 +42,15 @@ type bankOutput struct {
 func (a baseAuction) GetID() auctionID    { return a.ID }
 func (a baseAuction) SetID(id auctionID)  { a.ID = id }
 func (a baseAuction) GetEndTime() endTime { return a.EndTime }
-
-func (a baseAuction) GetPayout() []bankInput {
-	return []bankInput{{a.Bidder, a.Lot}}
-}
-func (a baseAuction) HasEnded(currentBlockHeight endTime) bool {
-	return currentBlockHeight > a.EndTime // > or ≥ ?
+func (a baseAuction) GetPayout() bankInput {
+	return bankInput{a.Bidder, a.Lot}
 }
 
 type ForwardAuction struct {
 	baseAuction
 }
 
-func NewForwardAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime) (ForwardAuction, []bankOutput) {
+func NewForwardAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime) (ForwardAuction, bankOutput) {
 	auction := ForwardAuction{baseAuction{
 		// no ID
 		Initiator:  seller,
@@ -66,8 +60,8 @@ func NewForwardAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin,
 		EndTime:    endTime,
 		MaxEndTime: endTime,
 	}}
-	outputs := []bankOutput{{seller, lot}}
-	return auction, outputs
+	output := bankOutput{seller, lot}
+	return auction, output
 }
 func (a ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
 	// check lot size matches lot?
@@ -93,7 +87,7 @@ type ReverseAuction struct {
 	baseAuction
 }
 
-func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, endTime endTime) (ReverseAuction, []bankOutput) {
+func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, endTime endTime) (ReverseAuction, bankOutput) {
 	auction := ReverseAuction{baseAuction{
 		// no ID
 		Initiator:  buyer,
@@ -103,8 +97,8 @@ func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, 
 		EndTime:    endTime,
 		MaxEndTime: endTime,
 	}}
-	outputs := []bankOutput{{buyer, initialLot}}
-	return auction, outputs
+	output := bankOutput{buyer, initialLot}
+	return auction, output
 }
 func (a ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
 
@@ -115,7 +109,7 @@ func (a ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddre
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("lot not smaller than last lot")
 	}
 	// calculate coin movements
-	outputs := []bankOutput{{bidder, a.Bid}}                                  // new bidder pays bid now}
+	outputs := []bankOutput{{bidder, a.Bid}}                                  // new bidder pays bid now
 	inputs := []bankInput{{a.Bidder, a.Bid}, {a.Initiator, a.Lot.Minus(lot)}} // old bidder is paid back, decrease in price for goes to buyer
 
 	// update auction
@@ -131,12 +125,9 @@ type ForwardReverseAuction struct {
 	baseAuction
 	MaxBid      sdk.Coin
 	OtherPerson sdk.AccAddress // TODO rename
-	// 	// MaxBid only needs to be "set" when you want a flip auction. Otherwise it should be "infinity", or the max possible value.
-	// 	// sdk.NewInt(2 ^ 255 - 1) // maximum size a sdk.Int can be, according to cosmos-sdk/types/int.go
-	// 	MaxBid sdk.Coins // TODO shouldn't be coins type, TODO any way to make this optional?
 }
 
-func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime, maxBid sdk.Coin, otherPerson sdk.AccAddress) (ForwardReverseAuction, []bankOutput) {
+func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime, maxBid sdk.Coin, otherPerson sdk.AccAddress) (ForwardReverseAuction, bankOutput) {
 	auction := ForwardReverseAuction{
 		baseAuction: baseAuction{
 			// no ID
@@ -149,8 +140,8 @@ func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sd
 		MaxBid:      maxBid,
 		OtherPerson: otherPerson,
 	}
-	outputs := []bankOutput{{seller, lot}}
-	return auction, outputs
+	output := bankOutput{seller, lot}
+	return auction, output
 }
 
 func (a ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) (outputs []bankOutput, inputs []bankInput, err sdk.Error) {
