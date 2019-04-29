@@ -2,7 +2,8 @@
 
 ##
 
-This specification builds on previous work of Tendermint based sidechains, including [Peggy](https://github.com/cosmos/peggy) and [BitcoinPeg](https://github.com/nomic-io/bitcoin-peg)
+This specification builds on previous work of Tendermint based sidechains, including [Peggy](https://github.com/cosmos/peggy) and [BitcoinPeg](https://github.com/nomic-io/bitcoin-peg).
+
 We present a design for a one-way XRP pegged sidechain based on the Tendermint BFT consensus protocol. This design enables decentralized groups of validators to manage a reserve of XRP within a sidechain environment, whereby the native functionality of XRP can be expanded to include custom application code and smart contracts.
 
 ## Technical Overview
@@ -60,6 +61,7 @@ Users of the XRP ledger can deposit their XRP to the reserve and receive pegged 
 This transaction MUST be a [Payment](https://github.com/ripple/ripple-lib/blob/develop/docs/index.md#payment) with the following specification:
 1. The only destination address is the reserve account
 2. There is exactly one memo with a data field that specifies a valid address on the sidechain.
+    * The address MUST be 20 bytes, bech32 encoded, with prefix 'usdx'.
 
 The peg client listens to the reserve multisig address and broadcasts valid deposit transactions, along with a proof that they were included in a closed XRP ledger. When the sidechain receives the proof of deposit, it mints tokens on the sidechains equal to the amount that was deposited.
 
