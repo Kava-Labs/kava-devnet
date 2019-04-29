@@ -97,6 +97,7 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 	if err != nil {
 		return err
 	}
+	// TODO this will fail if someone tries to update their bid without the full bid amount sitting in their account
 	// sub outputs
 	for _, output := range coinOutputs {
 		_, _, err = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors properly here. All coin transfers should be atomic. InputOutputCoins may work
