@@ -10,6 +10,11 @@ type Asset struct {
 	Description string `json:"description"`
 }
 
+// Oracle struct that documents which address an oracle is using
+type Oracle struct {
+	OracleAddress string `json:"oracle_address"`
+}
+
 // CurrentPrice is a struct that contains the metadata of a current price for a particular asset in the pricefeed module.
 type CurrentPrice struct {
 	AssetCode string  `json:"asset_code"`
@@ -19,9 +24,10 @@ type CurrentPrice struct {
 
 // PostedPrice struct represented a price for an asset posted by a specific oracle
 type PostedPrice struct {
-	AssetCode string  `json:"asset_code"`
-	Price     sdk.Dec `json:"price"`
-	Expiry    sdk.Int `json:"expiry"`
+	AssetCode     string  `json:"asset_code"`
+	OracleAddress string  `json:"oracle_address"`
+	Price         sdk.Dec `json:"price"`
+	Expiry        sdk.Int `json:"expiry"`
 }
 
 // SortDecs provides the interface needed to sort sdk.Dec slices
