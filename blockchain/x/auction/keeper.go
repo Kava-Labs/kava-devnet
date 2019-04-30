@@ -3,6 +3,7 @@ package auction
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
@@ -31,7 +32,7 @@ func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot 
 	// create auction
 	auction, initiatorOutput := NewForwardAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration)
 	// start the auction
-	err := k.startAuction(ctx, auction, initiatorOutput)
+	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid s
 	// create auction
 	auction, initiatorOutput := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+maxAuctionDuration)
 	// start the auction
-	err := k.startAuction(ctx, auction, initiatorOutput)
+	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
@@ -55,7 +56,7 @@ func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddres
 	// create auction
 	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
 	// start the auction
-	err := k.startAuction(ctx, auction, initiatorOutput)
+	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
@@ -261,7 +262,7 @@ func (k Keeper) getQueueIterator(ctx sdk.Context, endTime endTime) sdk.Iterator 
 	// get an interator
 	return store.Iterator(
 		queueKeyPrefix, // start key
-		sdk.PrefixEndBytes(getQueueElementKeyPrefix(endTime)), // end key (exclusive)
+		sdk.PrefixEndBytes(getQueueElementKeyPrefix(endTime+1)), // end key (exclusive) // +1 to make it inclusive
 	)
 }
 

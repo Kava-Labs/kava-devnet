@@ -14,7 +14,7 @@ type Auction interface {
 	GetID() auctionID
 	SetID(auctionID)
 	PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error)
-	GetEndTime() endTime
+	GetEndTime() endTime // auctions close at the end of the block with blockheight EndTime (ie bids placed in that block are valid)
 	GetPayout() bankInput
 }
 type baseAuction struct {
@@ -40,7 +40,7 @@ type bankOutput struct {
 }
 
 func (a baseAuction) GetID() auctionID    { return a.ID }
-func (a baseAuction) SetID(id auctionID)  { a.ID = id }
+func (a *baseAuction) SetID(id auctionID) { a.ID = id }
 func (a baseAuction) GetEndTime() endTime { return a.EndTime }
 func (a baseAuction) GetPayout() bankInput {
 	return bankInput{a.Bidder, a.Lot}
@@ -63,9 +63,12 @@ func NewForwardAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin,
 	output := bankOutput{seller, lot}
 	return auction, output
 }
-func (a ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
-	// check lot size matches lot?
-	// check is has not closed?
+func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
+	// TODO check lot size matches lot?
+	// check auction has not closed
+	if currentBlockHeight > a.EndTime {
+		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("auction has closed")
+	}
 	// check bid is greater than last bid
 	if !bid.IsGTE(a.Bid) { // TODO this should be just GT. TODO add minimum bid size
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("bid not greater than last bid")
@@ -100,7 +103,7 @@ func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, 
 	output := bankOutput{buyer, initialLot}
 	return auction, output
 }
-func (a ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
+func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
 
 	// check bid size matches bid?
 	// check is has not closed?
@@ -144,7 +147,7 @@ func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sd
 	return auction, output
 }
 
-func (a ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) (outputs []bankOutput, inputs []bankInput, err sdk.Error) {
+func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) (outputs []bankOutput, inputs []bankInput, err sdk.Error) {
 	// determine phase of auction
 	switch {
 	case a.Bid.IsLT(a.MaxBid) && bid.IsLT(a.MaxBid):
