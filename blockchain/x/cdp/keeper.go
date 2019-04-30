@@ -1,13 +1,28 @@
 package cdp
 
+import (
+	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/bank"
+)
+
 // ---------- Keeper ----------
 type Keeper struct {
-	// pricefeed keeper
-	// bank keeper
+	storeKey sdk.StoreKey
+	pricefeed pricefeed.Keeper
+	bank bank.keeper
+	cdc *codec.Codec
+}
+func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, pricefeed pricefeed.Keeper, bank bank.Keeper) Keeper {
+return Keeper{
+	pricefeed: pricefeed,
+	bank: bank,
+	storeKey: storeKey,
+	cdc: cdc,
+}
 }
 
 // ModifyCDP creates, changes, or deletes a CDP
-func (k Keeper) ModifyCDP(owner, collateralType, collateral, debt) sdk.Error {
+func (k Keeper) ModifyCDP(owner sdk.AccAddress, collateralType string, changeInCollateral sdk.Int, changeInStable sdk.Int) sdk.Error {
 	// try getting cdp
 	cdp, found := GetCDP(owner, collateralType)
 	// if none create a blank one (in memory)
@@ -15,6 +30,7 @@ func (k Keeper) ModifyCDP(owner, collateralType, collateral, debt) sdk.Error {
 		var cdp CDP
 	}
 	// add/subtract coins from owner
+
 	// add/subtract collateral and debt recorded in CDP
 	
 	// check CDP is OK (call pricefeed.GetCurrentPrice) - collateral ratio, collateral and total debt ceilings, dust // cdp.Collateral.Mul(k.priceFeedKeeper.GetPrice()).Div(cdp.Debt).GTE(ilk.CollateralRatio)
@@ -50,24 +66,39 @@ func (k Keeper) GetUnderCollateralizedCDPs() {
 
 // Store wrappers:
 
-func (k Keeper) GetCDP(owner, collateralType) (CDP, bool) {
+func (k Keeper) GetCDP(owner sdk.AccAddress, collateralType string) (CDP, bool) {
 	// get store
+	store := ctx.KVStore(k.storeKey)
 	// get CDP
+	bz := store.Get(k.getCDPKey(owner, collateralType))
 	// unmarshal
+	if bz == nil {
+		return CDP{}, false
+	}
+	var cdp CDP
+	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &cdp)
+	return cdp, true
 }
-func (k Keeper) setCDP(owner, collateralType, CDP) {
+func (k Keeper) setCDP(cdp CDP) {
 	// get store
+	store := ctx.KVStore(k.storeKey)
 	// marshal and set
-	// remove and add to iterator
+	bz := k.cdc.MustMarshalBinaryLengthPrefixed(cdp)
+	store.Set(k.getCDPKey(cdp.Owner, cdp.CollateralType), bz)
+	// add to iterator
+	// TODO
 }
-func (k Keeper) deleteCDP(owner CollateralType, CDP) {
+func (k Keeper) deleteCDP(owner sdk.AccAddress, collateralType string) {
 	// get store
+	store := ctx.KVStore(k.storeKey)
 	// delete key
+	store.Delete(k.getCDPKey(owner, collateralType))
 	// remove from iterator
+	// TODO
 }
-// CDP could have a unique id, or a key could be generated from the owner's address and collateral type
-func (k Keeper) getCDPKey(owner, collateralType) []byte {
-	return []byte{owner.String() + collateralType.Denom}
+// Alternatively CDPs could have a unique id. Currently only one cdp can exist for an account-collateralType pair
+func (k Keeper) getCDPKey(owner sdk.AccAddress, collateralType string) []byte {
+	return []byte{owner.String() + collateralType}
 }
 // GetCollateralType
 // setCollateralType
