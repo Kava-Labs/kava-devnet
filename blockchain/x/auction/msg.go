@@ -28,6 +28,16 @@ func (msg MsgPlaceBid) Type() string { return "place_bid" }
 
 // ValidateBasic does a simple validation check that doesn't require access to any other information.
 func (msg MsgPlaceBid) ValidateBasic() sdk.Error {
+	if msg.Bidder.Empty() {
+		return sdk.ErrInternal("invalid (empty) bidder address")
+	}
+	if msg.Bid.Amount.LT(sdk.ZeroInt()) {
+		return sdk.ErrInternal("invalid (negative) bid amount")
+	}
+	if msg.Lot.Amount.LT(sdk.ZeroInt()) {
+		return sdk.ErrInternal("invalid (negative) lot amount")
+	}
+	// TODO check coin denoms
 	return nil
 }
 
