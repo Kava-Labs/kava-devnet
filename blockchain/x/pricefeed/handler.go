@@ -45,6 +45,6 @@ func EndBlocker(ctx sdk.Context, k Keeper) sdk.Result {
 	// which seems preferable to having state storage values change in response to multiple transactions
 	// which occur during a block
 	//TODO use an iterator and update the prices for all assets in the store
-	k.SetCurrentPrices(ctx)
+	k.setCurrentPrices(ctx)
 	return sdk.Result{}
 }

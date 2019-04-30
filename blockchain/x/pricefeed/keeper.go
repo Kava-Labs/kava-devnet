@@ -49,14 +49,6 @@ func NewKeeper(storeKey sdk.StoreKey, cdc *codec.Codec, codespace sdk.CodespaceT
 	}
 }
 
-func (k Keeper) getAssets(ctx sdk.Context) []Asset {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get([]byte(AssetPrefix))
-	var assets []Asset
-	k.cdc.MustUnmarshalBinaryBare(bz, &assets)
-	return assets
-}
-
 // SetPrice updates the posted price for a specific oracle
 func (k Keeper) setPrice(
 	ctx sdk.Context,
@@ -85,27 +77,9 @@ func (k Keeper) setPrice(
 	return
 }
 
-// GetCurrentPrice fetches the current median price of all oracles for a specific asset
-func (k Keeper) GetCurrentPrice(ctx sdk.Context, assetCode string) CurrentPrice {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get([]byte(CurrentPricePrefix + assetCode))
-	var price CurrentPrice
-	k.cdc.MustUnmarshalBinaryBare(bz, &price)
-	return price
-}
-
-// GetRawPrices fetches the set of all prices posted by oracles for an asset
-func (k Keeper) GetRawPrices(ctx sdk.Context, assetCode string) []PostedPrice {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get([]byte(RawPriceFeedPrefix + assetCode))
-	var prices []PostedPrice
-	k.cdc.MustUnmarshalBinaryBare(bz, &prices)
-	return prices
-}
-
-// SetCurrentPrices updates the price of an asset to the meadian of all valid oracle inputs
-func (k Keeper) SetCurrentPrices(ctx sdk.Context) {
-	assets := k.getAssets(ctx)
+// setCurrentPrices updates the price of an asset to the meadian of all valid oracle inputs
+func (k Keeper) setCurrentPrices(ctx sdk.Context) {
+	assets := k.GetAssets(ctx)
 	for _, v := range assets {
 		assetCode := v.AssetCode
 		prices := k.GetRawPrices(ctx, assetCode)
@@ -161,6 +135,33 @@ func (k Keeper) SetCurrentPrices(ctx sdk.Context) {
 	}
 
 	return
+}
+
+// GetAssets returns the assets in the pricefeed system
+func (k Keeper) GetAssets(ctx sdk.Context) []Asset {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get([]byte(AssetPrefix))
+	var assets []Asset
+	k.cdc.MustUnmarshalBinaryBare(bz, &assets)
+	return assets
+}
+
+// GetCurrentPrice fetches the current median price of all oracles for a specific asset
+func (k Keeper) GetCurrentPrice(ctx sdk.Context, assetCode string) CurrentPrice {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get([]byte(CurrentPricePrefix + assetCode))
+	var price CurrentPrice
+	k.cdc.MustUnmarshalBinaryBare(bz, &price)
+	return price
+}
+
+// GetRawPrices fetches the set of all prices posted by oracles for an asset
+func (k Keeper) GetRawPrices(ctx sdk.Context, assetCode string) []PostedPrice {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get([]byte(RawPriceFeedPrefix + assetCode))
+	var prices []PostedPrice
+	k.cdc.MustUnmarshalBinaryBare(bz, &prices)
+	return prices
 }
 
 // ValidatePostPrice makes sure the person posting the price is an oracle
