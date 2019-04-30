@@ -106,7 +106,10 @@ func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, 
 func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
 
 	// check bid size matches bid?
-	// check is has not closed?
+	// check auction has not closed
+	if currentBlockHeight > a.EndTime {
+		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("auction has closed")
+	}
 	// check bid is less than last bid
 	if !lot.IsLT(a.Lot) { // TODO add min bid decrements
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("lot not smaller than last lot")
@@ -127,7 +130,7 @@ func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 type ForwardReverseAuction struct {
 	baseAuction
 	MaxBid      sdk.Coin
-	OtherPerson sdk.AccAddress // TODO rename
+	OtherPerson sdk.AccAddress // TODO rename, this is normally the original CDP owner
 }
 
 func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime, maxBid sdk.Coin, otherPerson sdk.AccAddress) (ForwardReverseAuction, bankOutput) {
@@ -148,6 +151,11 @@ func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sd
 }
 
 func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) (outputs []bankOutput, inputs []bankInput, err sdk.Error) {
+	// check auction has not closed
+	if currentBlockHeight > a.EndTime {
+		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("auction has closed")
+	}
+
 	// determine phase of auction
 	switch {
 	case a.Bid.IsLT(a.MaxBid) && bid.IsLT(a.MaxBid):
