@@ -17,7 +17,7 @@ type Auction interface {
 	GetEndTime() endTime // auctions close at the end of the block with blockheight EndTime (ie bids placed in that block are valid)
 	GetPayout() bankInput
 }
-type baseAuction struct {
+type BaseAuction struct {
 	ID         auctionID
 	Initiator  sdk.AccAddress // Person who starts the auction. Giving away Lot (aka seller in a forward auction)
 	Lot        sdk.Coin       // Amount of coins up being given by initiator (FA - amount for sale by seller, RA - cost of good by buyer (bid))
@@ -39,19 +39,19 @@ type bankOutput struct {
 	Coin    sdk.Coin
 }
 
-func (a baseAuction) GetID() auctionID    { return a.ID }
-func (a *baseAuction) SetID(id auctionID) { a.ID = id }
-func (a baseAuction) GetEndTime() endTime { return a.EndTime }
-func (a baseAuction) GetPayout() bankInput {
+func (a BaseAuction) GetID() auctionID    { return a.ID }
+func (a *BaseAuction) SetID(id auctionID) { a.ID = id }
+func (a BaseAuction) GetEndTime() endTime { return a.EndTime }
+func (a BaseAuction) GetPayout() bankInput {
 	return bankInput{a.Bidder, a.Lot}
 }
 
 type ForwardAuction struct {
-	baseAuction
+	BaseAuction
 }
 
 func NewForwardAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime) (ForwardAuction, bankOutput) {
-	auction := ForwardAuction{baseAuction{
+	auction := ForwardAuction{BaseAuction{
 		// no ID
 		Initiator:  seller,
 		Lot:        lot,
@@ -87,11 +87,11 @@ func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 }
 
 type ReverseAuction struct {
-	baseAuction
+	BaseAuction
 }
 
 func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, endTime endTime) (ReverseAuction, bankOutput) {
-	auction := ReverseAuction{baseAuction{
+	auction := ReverseAuction{BaseAuction{
 		// no ID
 		Initiator:  buyer,
 		Lot:        initialLot,
@@ -128,14 +128,14 @@ func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 }
 
 type ForwardReverseAuction struct {
-	baseAuction
+	BaseAuction
 	MaxBid      sdk.Coin
 	OtherPerson sdk.AccAddress // TODO rename, this is normally the original CDP owner
 }
 
 func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime, maxBid sdk.Coin, otherPerson sdk.AccAddress) (ForwardReverseAuction, bankOutput) {
 	auction := ForwardReverseAuction{
-		baseAuction: baseAuction{
+		BaseAuction: BaseAuction{
 			// no ID
 			Initiator:  seller,
 			Lot:        lot,

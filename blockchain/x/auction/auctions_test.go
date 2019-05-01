@@ -35,7 +35,7 @@ func TestForwardAuction_PlaceBid(t *testing.T) {
 	}{
 		{
 			"normal",
-			ForwardAuction{baseAuction{
+			ForwardAuction{BaseAuction{
 				Initiator:  seller,
 				Lot:        c("usdx", 100),
 				Bidder:     buyer1,
@@ -53,7 +53,7 @@ func TestForwardAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"lowBid",
-			ForwardAuction{baseAuction{
+			ForwardAuction{BaseAuction{
 				Initiator:  seller,
 				Lot:        c("usdx", 100),
 				Bidder:     buyer1,
@@ -71,7 +71,7 @@ func TestForwardAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"timeout",
-			ForwardAuction{baseAuction{
+			ForwardAuction{BaseAuction{
 				Initiator:  seller,
 				Lot:        c("usdx", 100),
 				Bidder:     buyer1,
@@ -89,7 +89,7 @@ func TestForwardAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"hitMaxEndTime",
-			ForwardAuction{baseAuction{
+			ForwardAuction{BaseAuction{
 				Initiator:  seller,
 				Lot:        c("usdx", 100),
 				Bidder:     buyer1,
@@ -154,7 +154,7 @@ func TestReverseAuction_PlaceBid(t *testing.T) {
 	}{
 		{
 			"normal",
-			ReverseAuction{baseAuction{
+			ReverseAuction{BaseAuction{
 				Initiator:  buyer,
 				Lot:        c("xrs", 10),
 				Bidder:     seller1,
@@ -172,7 +172,7 @@ func TestReverseAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"highBid",
-			ReverseAuction{baseAuction{
+			ReverseAuction{BaseAuction{
 				Initiator:  buyer,
 				Lot:        c("xrs", 10),
 				Bidder:     seller1,
@@ -190,7 +190,7 @@ func TestReverseAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"timeout",
-			ReverseAuction{baseAuction{
+			ReverseAuction{BaseAuction{
 				Initiator:  buyer,
 				Lot:        c("xrs", 10),
 				Bidder:     seller1,
@@ -208,7 +208,7 @@ func TestReverseAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"hitMaxEndTime",
-			ReverseAuction{baseAuction{
+			ReverseAuction{BaseAuction{
 				Initiator:  buyer,
 				Lot:        c("xrs", 10),
 				Bidder:     seller1,
@@ -275,7 +275,7 @@ func TestForwardReverseAuction_PlaceBid(t *testing.T) {
 	}{
 		{
 			"normalForwardBid",
-			ForwardReverseAuction{baseAuction: baseAuction{
+			ForwardReverseAuction{BaseAuction: BaseAuction{
 				Initiator:  seller,
 				Lot:        c("xrp", 100),
 				Bidder:     buyer1,
@@ -296,7 +296,7 @@ func TestForwardReverseAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"normalSwitchOverBid",
-			ForwardReverseAuction{baseAuction: baseAuction{
+			ForwardReverseAuction{BaseAuction: BaseAuction{
 				Initiator:  seller,
 				Lot:        c("xrp", 100),
 				Bidder:     buyer1,
@@ -317,7 +317,7 @@ func TestForwardReverseAuction_PlaceBid(t *testing.T) {
 		},
 		{
 			"normalReverseBid",
-			ForwardReverseAuction{baseAuction: baseAuction{
+			ForwardReverseAuction{BaseAuction: BaseAuction{
 				Initiator:  seller,
 				Lot:        c("xrp", 99),
 				Bidder:     buyer1,

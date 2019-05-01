@@ -30,7 +30,7 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bank.Keeper, storeKey sdk.StoreKey) 
 // StartForwardAuction starts a normal auction. Known as flap in maker.
 func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin) sdk.Error {
 	// create auction
-	auction, initiatorOutput := NewForwardAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	auction, initiatorOutput := NewForwardAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration)
 	// start the auction
 	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
@@ -54,7 +54,8 @@ func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid s
 // StartForwardReverseAuction starts an auction where bidders bid up to a maxBid, then switch to bidding down on price. Known as flip in maker.
 func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, maxBid sdk.Coin, otherPerson sdk.AccAddress) sdk.Error {
 	// create auction
-	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
+	initialBid := sdk.NewInt64Coin(maxBid.Denom, 0) // set the bidding coin denomination from the specified max bid
+	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
 	// start the auction
 	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
@@ -154,8 +155,11 @@ func (k Keeper) getNextAuctionID(ctx sdk.Context) (auctionID, sdk.Error) { // TO
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(k.getNextAuctionIDKey())
 	if bz == nil {
-		panic("initial auctionID never set in genesis")
-		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set") // TODO is this needed? Why not just set it zero here?
+		// if not found, set the id at 0
+		bz = k.cdc.MustMarshalBinaryLengthPrefixed(auctionID(0))
+		store.Set(k.getNextAuctionIDKey(), bz)
+		// TODO Why does the gov module set the id in genesis? :
+		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set")
 	}
 	var auctionID auctionID
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &auctionID)
