@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	maxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time
-	bidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name
+	maxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time // 34560
+	bidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name // 2160
 )
 
 // Auction is an interface to several types of auction.

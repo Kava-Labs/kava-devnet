@@ -129,9 +129,9 @@ func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 	if !found {
 		return sdk.ErrInternal("auction doesn't exist")
 	}
-	// check if auction has timed out
-	if ctx.BlockHeight() > int64(auction.GetEndTime()) { // TODO > or ≥ ?
-		return sdk.ErrInternal("auction has already ended")
+	// error if auction has not reached the end time
+	if ctx.BlockHeight() <= int64(auction.GetEndTime()) { // auctions close at the end of the block with blockheight == EndTime
+		return sdk.ErrInternal("auction can't be closed as curent block height is under auction end time")
 	}
 	// payout to the last bidder
 	coinInput := auction.GetPayout()
