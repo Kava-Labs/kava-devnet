@@ -9,7 +9,8 @@ import (
 	"testing"
 )
 
-// TestApp is a basic integration test of creating an auction, placing a bid, and the auction closing.
+// TestApp contans several basic integration tests of creating an auction, placing a bid, and the auction closing.
+
 func TestApp_ForwardAuction(t *testing.T) {
 	// Setup
 	mapp, keeper, addresses, privKeys := setUpMockApp()
