@@ -2,9 +2,10 @@ package auction
 
 import (
 	"testing"
-	"github.com/stretchr/testify/require"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	abci "github.com/tendermint/tendermint/abci/types"	
+	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
 )
 
 func TestKeeper_SetGetDeleteAuction(t *testing.T) {
@@ -30,7 +31,7 @@ func TestKeeper_SetGetDeleteAuction(t *testing.T) {
 
 	// delete auction
 	keeper.deleteAuction(ctx, id)
-	
+
 	// check auction does not exist
 	_, found = keeper.getAuction(ctx, id)
 	require.False(t, found)

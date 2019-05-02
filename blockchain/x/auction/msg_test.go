@@ -2,16 +2,17 @@ package auction
 
 import (
 	"testing"
-	"github.com/stretchr/testify/require"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/stretchr/testify/require"
 )
 
 func TestMsgPlaceBid_ValidateBasic(t *testing.T) {
 	addr := sdk.AccAddress([]byte("someName"))
 	tests := []struct {
-		name   string
-		msg MsgPlaceBid
-		expectPass   bool
+		name       string
+		msg        MsgPlaceBid
+		expectPass bool
 	}{
 		{"normal", MsgPlaceBid{0, addr, sdk.NewInt64Coin("usdx", 10), sdk.NewInt64Coin("xrs", 20)}, true},
 		{"emptyAddr", MsgPlaceBid{0, sdk.AccAddress{}, sdk.NewInt64Coin("usdx", 10), sdk.NewInt64Coin("xrs", 20)}, false},
