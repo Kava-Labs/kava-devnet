@@ -23,8 +23,8 @@ type BaseAuction struct {
 	Lot        sdk.Coin       // Amount of coins up being given by initiator (FA - amount for sale by seller, RA - cost of good by buyer (bid))
 	Bidder     sdk.AccAddress // Person who bids in the auction. Receiver of Lot. (aka buyer in forward auction, seller in RA)
 	Bid        sdk.Coin       // Amount of coins being given by the bidder (FA - bid, RA - amount being sold)
-	EndTime    endTime        // TODO check if an auction is closed on or after this specified block height
-	MaxEndTime endTime        // closing time
+	EndTime    endTime        // Block height at which the auction closes. It closes at the end of this block
+	MaxEndTime endTime        // Maximum closing time. Auctions can close before this but never after.
 }
 
 type auctionID uint64 // copied from how the gov module IDs its proposals
@@ -70,7 +70,7 @@ func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("auction has closed")
 	}
 	// check bid is greater than last bid
-	if !bid.IsGTE(a.Bid) { // TODO this should be just GT. TODO add minimum bid size
+	if !a.Bid.IsLT(bid) { // TODO this should be just GT. TODO add minimum bid size
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("bid not greater than last bid")
 	}
 	// calculate coin movements
@@ -160,15 +160,14 @@ func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.
 	switch {
 	case a.Bid.IsLT(a.MaxBid) && bid.IsLT(a.MaxBid):
 		// Forward auction phase
-		if !bid.IsGTE(a.Bid) { // TODO This should be just GT. TOOadd min bid increments
+		if !a.Bid.IsLT(bid) { // TODO add min bid increments
 			return []bankOutput{}, []bankInput{}, sdk.ErrInternal("bid not greater than last bid")
 		}
 		outputs = []bankOutput{{bidder, bid}}                                    // new bidder pays bid now
 		inputs = []bankInput{{a.Bidder, a.Bid}, {a.Initiator, bid.Minus(a.Bid)}} // old bidder is paid back, extra goes to seller
 	case a.Bid.IsLT(a.MaxBid):
 		// Switch over phase
-		// require bid == a.MaxBid
-		if !bid.IsEqual(a.MaxBid) {
+		if !bid.IsEqual(a.MaxBid) { // require bid == a.MaxBid
 			return []bankOutput{}, []bankInput{}, sdk.ErrInternal("bid greater than the max bid")
 		}
 		outputs = []bankOutput{{bidder, bid}} // new bidder pays bid now
