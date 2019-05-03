@@ -38,11 +38,6 @@ func (msg MsgPostPrice) Route() string { return RouterKey }
 // Type Implements Msg
 func (msg MsgPostPrice) Type() string { return TypeMsgPostPrice }
 
-// ValidateBasic Implements Msg.
-func (msg MsgPostPrice) ValidateBasic() sdk.Error {
-	return nil
-}
-
 // GetSignBytes Implements Msg.
 func (msg MsgPostPrice) GetSignBytes() []byte {
 	bz := msgCdc.MustMarshalJSON(msg) // TODO define msgCdc in codec.go as they seem to do in gov module
@@ -52,4 +47,22 @@ func (msg MsgPostPrice) GetSignBytes() []byte {
 // GetSigners Implements Msg.
 func (msg MsgPostPrice) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.From}
+}
+
+// ValidateBasic does a simple validation check that doesn't require access to any other information.
+func (msg MsgPostPrice) ValidateBasic() sdk.Error {
+	if msg.From.Empty() {
+		return sdk.ErrInternal("invalid (empty) bidder address")
+	}
+	if len(msg.AssetCode) == 0 {
+		return sdk.ErrInternal("invalid (empty) asset code")
+	}
+	if msg.Price.LT(sdk.ZeroDec()) {
+		return sdk.ErrInternal("invalid (negative) price")
+	}
+	if msg.Expiry.LT(sdk.ZeroInt()) {
+		return sdk.ErrInternal("invalid (negative) expiry")
+	}
+	// TODO check coin denoms
+	return nil
 }

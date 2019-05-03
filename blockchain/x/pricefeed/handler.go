@@ -38,7 +38,7 @@ func HandleMsgPostPrice(
 }
 
 // EndBlocker updates the current pricefeed
-func EndBlocker(ctx sdk.Context, k Keeper) sdk.Result {
+func EndBlocker(ctx sdk.Context, k Keeper) sdk.Tags {
 	// TODO val_state_change.go is relevant if we want to rotate the oracle set
 
 	// Running in the end blocker ensures that prices will update at most once per block,
@@ -46,5 +46,5 @@ func EndBlocker(ctx sdk.Context, k Keeper) sdk.Result {
 	// which occur during a block
 	//TODO use an iterator and update the prices for all assets in the store
 	k.setCurrentPrices(ctx)
-	return sdk.Result{}
+	return sdk.Tags{}
 }

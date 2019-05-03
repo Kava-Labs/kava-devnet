@@ -1,0 +1,111 @@
+package pricefeed
+
+import (
+	"testing"
+	"github.com/stretchr/testify/require"
+	abci "github.com/tendermint/tendermint/abci/types"
+	sdk "github.com/cosmos/cosmos-sdk/types"
+)
+
+// TestKeeper_SetGetAsset tests adding assets to the pricefeed, getting assets from the store
+func TestKeeper_SetGetAsset(t *testing.T) {
+	helper := getMockApp(t, 0, GenesisState{}, nil)
+	header := abci.Header{Height: helper.mApp.LastBlockHeight() + 1}
+	helper.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := helper.mApp.BaseApp.NewContext(false, abci.Header{})
+	helper.keeper.addAsset(ctx, "tst", "test asset")
+	assets := helper.keeper.GetAssets(ctx)
+	require.Equal(t, len(assets), 1)
+	require.Equal(t, assets[0].AssetCode, "tst")
+
+	_, found := helper.keeper.GetAsset(ctx, "tst")
+	require.Equal(t, found, true)
+
+	helper.keeper.addAsset(ctx, "tst2", "2nd test asset")
+	assets = helper.keeper.GetAssets(ctx)
+	require.Equal(t, len(assets), 2)
+	require.Equal(t, assets[0].AssetCode, "tst")
+
+	_, found = helper.keeper.GetAsset(ctx, "nan")
+	require.Equal(t, found, false)
+}
+
+// TestKeeper_GetSetPrice Test Posting the price by an oracle
+func TestKeeper_GetSetPrice(t *testing.T) {
+	helper := getMockApp(t, 2, GenesisState{}, nil)
+	header := abci.Header{Height: helper.mApp.LastBlockHeight() + 1}
+	helper.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := helper.mApp.BaseApp.NewContext(false, abci.Header{})
+	helper.keeper.addAsset(ctx, "tst", "test asset")
+	// Set price by oracle 1
+	_, err := helper.keeper.setPrice(
+		ctx, helper.addrs[0], "tst",
+		sdk.MustNewDecFromStr("0.33"),
+		sdk.NewInt(10))
+	require.NoError(t, err)
+	// Get raw prices
+	rawPrices := helper.keeper.GetRawPrices(ctx, "tst")
+	require.Equal(t, len(rawPrices), 1)
+	require.Equal(t, rawPrices[0].Price.Equal(sdk.MustNewDecFromStr("0.33")), true)
+	// Set price by oracle 2
+	_, err = helper.keeper.setPrice(
+		ctx, helper.addrs[1], "tst",
+		sdk.MustNewDecFromStr("0.35"),
+		sdk.NewInt(10))
+	require.NoError(t, err)
+
+	rawPrices = helper.keeper.GetRawPrices(ctx, "tst")
+	require.Equal(t, len(rawPrices), 2)
+	require.Equal(t, rawPrices[1].Price.Equal(sdk.MustNewDecFromStr("0.35")), true)
+
+	// Update Price by Oracle 1
+	_, err = helper.keeper.setPrice(
+		ctx, helper.addrs[0], "tst",
+		sdk.MustNewDecFromStr("0.37"),
+		sdk.NewInt(10))
+	require.NoError(t, err)
+	rawPrices = helper.keeper.GetRawPrices(ctx, "tst")
+	require.Equal(t, rawPrices[0].Price.Equal(sdk.MustNewDecFromStr("0.37")), true)
+}
+
+
+// TestKeeper_GetSetCurrentPrice Test Setting the median price of an Asset
+func TestKeeper_GetSetCurrentPrice(t *testing.T) {
+	helper := getMockApp(t, 4, GenesisState{}, nil)
+	header := abci.Header{Height: helper.mApp.LastBlockHeight() + 1}
+	helper.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := helper.mApp.BaseApp.NewContext(false, abci.Header{})
+	// Odd number of oracles
+	helper.keeper.addAsset(ctx, "tst", "test asset")
+	helper.keeper.setPrice(
+		ctx, helper.addrs[0], "tst",
+		sdk.MustNewDecFromStr("0.33"),
+		sdk.NewInt(10))
+	helper.keeper.setPrice(
+		ctx, helper.addrs[1], "tst",
+		sdk.MustNewDecFromStr("0.35"),
+		sdk.NewInt(10))
+		helper.keeper.setPrice(
+			ctx, helper.addrs[2], "tst",
+			sdk.MustNewDecFromStr("0.34"),
+			sdk.NewInt(10))
+	// Set current price
+	err := helper.keeper.setCurrentPrices(ctx)
+	require.NoError(t, err)
+	// Get Current price
+	price := helper.keeper.GetCurrentPrice(ctx, "tst")
+	require.Equal(t, price.Price.Equal(sdk.MustNewDecFromStr("0.34")), true)
+
+	// Even number of oracles
+	helper.keeper.setPrice(
+		ctx, helper.addrs[3], "tst",
+		sdk.MustNewDecFromStr("0.36"),
+		sdk.NewInt(10))
+	err = helper.keeper.setCurrentPrices(ctx)
+	require.NoError(t, err)
+	price = helper.keeper.GetCurrentPrice(ctx, "tst")
+	t.Log(price)
+	require.Equal(t, price.Price.Equal(sdk.MustNewDecFromStr("0.345")), true)
+
+}
+
