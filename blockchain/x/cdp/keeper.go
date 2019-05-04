@@ -9,6 +9,7 @@ package cdp
 - what happens if a collateral type is removed from the list of allowed ones?
 - Should the values used to generate a key for a stored struct be in the struct?
 - standardize collateralType var name
+- Should ModifyCDP be split up?
 */
 
 import (
@@ -17,10 +18,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
 
-	"github.com/kava-labs/usdx/blockchain/x/cdp/pricefeed"
+	"github.com/kava-labs/usdx/blockchain/x/cdp/pricefeed" // TODO replace with real module
 )
 
 const StableDenom = "usdx" // TODO allow to be changed
+const GovDenom = "xrs"
 
 // ---------- Keeper ----------
 type Keeper struct {
@@ -47,7 +49,7 @@ func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace
 func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType string, changeInCollateral sdk.Int, changeInDebt sdk.Int) sdk.Error {
 	// Check collateral type ok
 	p := k.GetParams(ctx)
-	if !p.IsCollateralPresent(collateralType) {
+	if !p.IsCollateralPresent(collateralType) { // maybe abstract this logic into GetCDP
 		return sdk.ErrInternal("collateral type not enabled to create CDPs")
 	}
 
@@ -77,6 +79,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	if !found {
 		cdp = CDP{Owner: owner, CollateralDenom: collateralType, CollateralAmount: sdk.ZeroInt(), Debt: sdk.ZeroInt()}
 	}
+	// Add/Subtract collateral and debt
 	cdp.CollateralAmount = cdp.CollateralAmount.Add(changeInCollateral)
 	if cdp.CollateralAmount.IsNegative() {
 		return sdk.ErrInternal(" can't withdraw more collateral than present in CDP")
@@ -91,13 +94,14 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 		return sdk.ErrInternal("Change to CDP would put it below liquidation ratio")
 	}
 	// TODO check for dust
+	// Set CDP
 	if cdp.CollateralAmount.IsZero() && cdp.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
 		k.deleteCDP(ctx, cdp)
 	} else {
 		k.setCDP(ctx, cdp) // if subsequent lines fail this needs to be reverted, but the sdk should do that automatically? // this should delete if it's empty
 	}
 
-	// Add/Subtract from collateral and global debt limits
+	// Add/Subtract from global debt limit
 	gDebt := k.GetGlobalDebt(ctx) // TODO what happens is not found?
 	gDebt = gDebt.Add(changeInDebt)
 	if gDebt.IsNegative() {
@@ -106,6 +110,9 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	if gDebt.GT(p.GlobalDebtLimit) {
 		sdk.ErrInternal("change to CDP would put the system over the global debt limit")
 	}
+	k.setGlobalDebt(ctx, gDebt)
+
+	// Add/Subtract from collateral debt limit
 	cStats := k.GetCollateralStats(ctx, cdp.CollateralDenom)
 	cStats.TotalDebt = cStats.TotalDebt.Add(changeInDebt)
 	if cStats.TotalDebt.IsNegative() {
@@ -204,7 +211,7 @@ func (k Keeper) GetGlobalDebt(ctx sdk.Context) sdk.Int {
 	bz := store.Get(globalDebtKey)
 	// unmarshal
 	if bz == nil {
-		panic("global debt not found") // TODO what is the correct behaviour if not found?
+		panic("global debt not found") // TODO what is the correct behavior if not found?
 	}
 	var globalDebt sdk.Int
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &globalDebt)
@@ -228,7 +235,7 @@ func (k Keeper) GetCollateralStats(ctx sdk.Context, collateralType string) Colla
 	bz := store.Get(k.getCollateralStatsKey(collateralType))
 	// unmarshal
 	if bz == nil {
-		panic("collateral stats not found") // TODO what is the correct behaviour if not found?
+		panic("collateral stats not found") // TODO what is the correct behavior if not found?
 	}
 	var cStats CollateralStats
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &cStats)
@@ -242,36 +249,6 @@ func (k Keeper) setCollateralStats(ctx sdk.Context, collateralStats CollateralSt
 	store.Set(k.getCollateralStatsKey(collateralStats.Denom), bz)
 }
 
-// ---------- Types ----------
-type CDP struct {
-	//ID               []byte         // removing IDs for now to make things simpler
-	Owner            sdk.AccAddress // account that authorizes changes to the CDP
-	CollateralDenom  string
-	CollateralAmount sdk.Int
-	Debt             sdk.Int
-}
-
-type CollateralStats struct { // TODO better name
-	Denom     string
-	TotalDebt sdk.Int // TODO are these types ok?
-	// no fees for now AccumulatedFees sdk.Int
-}
-
-// ---------- Handler, Msgs, EndBlocker ----------
-
-// MsgCreateOrModifyCDP creates, adds/removes collateral/usdx from a cdp
-type MsgCreateOrModifyCDP struct {
-	owner sdk.AccAddress
-	// TODO
-}
-
-// MsgTransferCDP changes the ownership of a cdp
-type MsgTransferCDP struct {
-	// TODO
-}
-
-// No endblocker, cdp monitoring happens in liquidator module
-
 // ---------- Weird Bank Stuff ----------
 // This only exists because module accounts aren't a thing yet.
 // Also because we need module accounts that allow for burning/minting.
@@ -283,45 +260,95 @@ type MsgTransferCDP struct {
 // - closeAuction would have to call something specific for the receiver module to accept coins (like liquidationKeeper.AddStableCoins)
 
 // With account modules all CDP functions can probably use just SendCoins to keep things safe (instead of AddCoins and SubtractCoins)
+// type SendKeeper interface {
+// 	type ViewKeeper interface {
+// 		GetCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
+// 		HasCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) bool
+// 		Codespace() sdk.CodespaceType
+// 	}
+// 	SendCoins(ctx sdk.Context, fromAddr sdk.AccAddress, toAddr sdk.AccAddress, amt sdk.Coins) (sdk.Tags, sdk.Error)
+// 	GetSendEnabled(ctx sdk.Context) bool
+// 	SetSendEnabled(ctx sdk.Context, enabled bool)
+// }
 
-var LiquidationAccountAddress = []byte("whatever")
+var LiquidatorAccountAddress = sdk.AccAddress([]byte("whatever"))
+var liquidatorAccountKey = []byte("liquidatorAccount")
 
 type LiquidatorModuleAccount struct {
-	coins sdk.Coins // keeps track of seized collateral and surplus usdx
+	Coins sdk.Coins // keeps track of seized collateral and surplus usdx
 }
 
-// func (k Keeper) AddCoins(address, amount) {
-// 	if address = LiquidationAccountAddress {
-// 		switch amount.Denom
-// 		case "xrs":
-// 			return // do nothing - effectively burns sent XRS
-// 		default:
-// 			modifyLiquidatorAccount(amount) // adds collateral or usdx
-// 	} else {
-// 		return bank.AddCoins(address, amount)
-// 	}
-// }
-// func (k Keeper) SubtractCoins{
-// 	if address = LiquidationAccountAddress {
-// 		switch amount.Denom
-// 		case "xrs":
-// 			return // do nothing - effectively mints XRS
-// 		default:
-// 			modifyLiquidatorAccount(amount) // adds collateral or usdx
-// 	} else {
-// 		return bank.SubtractCoins(address, amount)
-// 	}
-// }
-func (k Keeper) GetCoins(ctx sdk.Context, address sdk.AccAddress) {
-	// get store
-	// get liquidator account
-	// get coins, return // what should it return for XRS balance?
+func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error) {
+	// intercept module account
+	if address.Equals(LiquidatorAccountAddress) {
+		// remove gov token from list
+		filteredCoins := stripGovCoin(amount)
+		// add coins to module account
+		lma := k.getLiquidatorModuleAccount(ctx)
+		updatedCoins := lma.Coins.Plus(filteredCoins)
+		if updatedCoins.IsAnyNegative() {
+			panic("") // TODO return error, follow how bank does it
+		}
+		lma.Coins = updatedCoins
+		k.setLiquidatorModuleAccount(ctx, lma)
+		return updatedCoins, sdk.Tags{}, nil // TODO add tags
+	} else {
+		return k.bank.AddCoins(ctx, address, amount)
+	}
 }
 
-func (k Keeper) modifyLiquidatorAccount(ctx sdk.Context, amount sdk.Int) {
+// TODO abstract stuff better
+func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error) {
+	// intercept module account
+	if address.Equals(LiquidatorAccountAddress) {
+		// remove gov token from list
+		filteredCoins := stripGovCoin(amount)
+		// subtract coins from module account
+		lma := k.getLiquidatorModuleAccount(ctx)
+		updatedCoins := lma.Coins.Minus(filteredCoins)
+		if updatedCoins.IsAnyNegative() {
+			panic("") // TODO return error, follow how bank does it
+		}
+		lma.Coins = updatedCoins
+		k.setLiquidatorModuleAccount(ctx, lma)
+		return updatedCoins, sdk.Tags{}, nil // TODO add tags
+	} else {
+		return k.bank.SubtractCoins(ctx, address, amount)
+	}
+}
+func (k Keeper) GetCoins(ctx sdk.Context, address sdk.AccAddress) sdk.Coins {
+	return k.getLiquidatorModuleAccount(ctx).Coins
+	// TODO Should this return anything for the XRS balance? Currently returns zero
+}
+func (k Keeper) HasCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) bool {
+	return k.getLiquidatorModuleAccount(ctx).Coins.IsAllGTE(stripGovCoin(amount))
+	// TODO test
+}
+
+func (k Keeper) getLiquidatorModuleAccount(ctx sdk.Context) LiquidatorModuleAccount {
 	// get store
-	// get liquidator account
-	// get coins
-	// add/subtract coins
-	// set account
+	store := ctx.KVStore(k.storeKey)
+	// get bytes
+	bz := store.Get(liquidatorAccountKey)
+	if bz == nil {
+		panic("liquidator account not found")
+	}
+	// unmarshal
+	var lma LiquidatorModuleAccount
+	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &lma)
+	return lma
+}
+func (k Keeper) setLiquidatorModuleAccount(ctx sdk.Context, lma LiquidatorModuleAccount) {
+	store := ctx.KVStore(k.storeKey)
+	bz := k.cdc.MustMarshalBinaryLengthPrefixed(lma)
+	store.Set(liquidatorAccountKey, bz)
+}
+func stripGovCoin(coins sdk.Coins) sdk.Coins {
+	filteredCoins := sdk.Coins{}
+	for _, c := range coins {
+		if c.Denom != GovDenom {
+			filteredCoins = append(filteredCoins, c)
+		}
+	}
+	return filteredCoins
 }
