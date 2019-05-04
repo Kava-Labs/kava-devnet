@@ -26,7 +26,7 @@ require (
 	github.com/sacOO7/gowebsocket v0.0.0-20180719182212-1436bb906a4e
 	github.com/spf13/cobra v0.0.3
 	github.com/spf13/viper v1.3.2
-	github.com/stretchr/testify v1.3.0 // indirect
+	github.com/stretchr/testify v1.3.0
 	github.com/syndtr/goleveldb v1.0.0 // indirect
 	github.com/tendermint/btcd v0.1.1 // indirect
 	github.com/tendermint/go-amino v0.14.1
