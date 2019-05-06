@@ -8,7 +8,7 @@ package cdp
 /* TODO
 - what happens if a collateral type is removed from the list of allowed ones?
 - Should the values used to generate a key for a stored struct be in the struct?
-- standardize collateralType var name
+- standardize collateralType var name, keeper names stored in keeper
 - Should ModifyCDP be split up?
 */
 
@@ -18,7 +18,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
 
-	"github.com/kava-labs/usdx/blockchain/x/cdp/pricefeed" // TODO replace with real module
+	pricefeed "github.com/kava-labs/usdx/blockchain/x/cdp/mockpricefeed" // TODO replace with real module
 )
 
 const StableDenom = "usdx" // TODO allow to be changed
@@ -59,7 +59,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	if changeInCollateral.IsPositive() {
 		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralType, changeInCollateral)})
 	} else {
-		_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralType, changeInCollateral)})
+		_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralType, changeInCollateral.Neg())})
 	}
 	if err != nil {
 		return err
@@ -67,7 +67,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	if changeInDebt.IsPositive() {
 		_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.NewCoin(StableDenom, changeInDebt)})
 	} else {
-		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.Coins{sdk.NewCoin(StableDenom, changeInDebt)})
+		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.Coins{sdk.NewCoin(StableDenom, changeInDebt.Neg())})
 	}
 	if err != nil {
 		return err
@@ -105,10 +105,10 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	gDebt := k.GetGlobalDebt(ctx) // TODO what happens is not found?
 	gDebt = gDebt.Add(changeInDebt)
 	if gDebt.IsNegative() {
-		sdk.ErrInternal("global debt can't be negative") // This should never happen if debt per CDP can't be negative
+		return sdk.ErrInternal("global debt can't be negative") // This should never happen if debt per CDP can't be negative
 	}
 	if gDebt.GT(p.GlobalDebtLimit) {
-		sdk.ErrInternal("change to CDP would put the system over the global debt limit")
+		return sdk.ErrInternal("change to CDP would put the system over the global debt limit")
 	}
 	k.setGlobalDebt(ctx, gDebt)
 
@@ -116,10 +116,10 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	cStats := k.GetCollateralStats(ctx, cdp.CollateralDenom)
 	cStats.TotalDebt = cStats.TotalDebt.Add(changeInDebt)
 	if cStats.TotalDebt.IsNegative() {
-		sdk.ErrInternal("total debt for this collateral type can't be negative") // This should never happen if debt per CDP can't be negative
+		return sdk.ErrInternal("total debt for this collateral type can't be negative") // This should never happen if debt per CDP can't be negative
 	}
 	if cStats.TotalDebt.GT(p.GetCollateralParams(cdp.CollateralDenom).DebtLimit) {
-		sdk.ErrInternal("change to CDP would put the system over the debt limit for this collateral type")
+		return sdk.ErrInternal("change to CDP would put the system over the debt limit for this collateral type")
 	}
 	k.setCollateralStats(ctx, cStats)
 
@@ -165,6 +165,11 @@ func (k Keeper) GetParams(ctx sdk.Context) CdpModuleParams {
 	return p
 }
 
+// This is only needed to be able to setup the store from the genesis file. The keeper should not change any of the params itself.
+func (k Keeper) setParams(ctx sdk.Context, cdpModuleParams CdpModuleParams) {
+	k.paramsSubspace.Set(ctx, cdpModuleParamsKey, &cdpModuleParams) // TODO why is this a pointer
+}
+
 // ---------- Keeper Store Wrappers ----------
 // func (k Keeper) getCDPID(owner sdk.AccAddress, collateralType string) string {
 // 	return owner.String() + collateralType
@@ -194,7 +199,7 @@ func (k Keeper) setCDP(ctx sdk.Context, cdp CDP) {
 	store.Set(k.getCDPKey(cdp.Owner, cdp.CollateralDenom), bz)
 	// TODO add to iterator
 }
-func (k Keeper) deleteCDP(ctx sdk.Context, cdp CDP) {
+func (k Keeper) deleteCDP(ctx sdk.Context, cdp CDP) { // TODO should this id the cdp by passing in owner,collateralType pair?
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// delete key

@@ -22,7 +22,7 @@ type CollateralParams struct {
 	Denom            string  // Coin name of collateral type
 	LiquidationRatio sdk.Dec // The ratio (Collateral (priced in stable coin) / Debt) under which a CDP will be liquidated
 	DebtLimit        sdk.Int // Maximum amount of debt allowed to be drawn from this collateral type
-	DebtFloor        sdk.Int // used to prevent dust
+	//DebtFloor        sdk.Int // used to prevent dust
 }
 
 var cdpModuleParamsKey = []byte("CdpModuleParams")
