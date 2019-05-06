@@ -1,6 +1,7 @@
 package cdp
 
 import (
+	"fmt"
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -19,6 +20,8 @@ import (
 // Keeper test just needs a mock keeper, not a whole mock app. Stake does this. It creates an in memory db, and creates all the sub keepers needed. Somewhat verbose though.
 // Problem in that getMockApp returns randomly generated addresses. But I want to use an address in the test cases.
 
+// TODO sort the coins in the test to avoid error in comparing coins. Use sdk.NewCoins in v0.34
+
 func TestKeeper_ModifyCDP(t *testing.T) {
 	ownerAddr, _, _ := generateAccAddress()
 
@@ -30,27 +33,67 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	}
 	type args struct {
 		owner              sdk.AccAddress
-		collateralDenom     string
+		collateralDenom    string
 		changeInCollateral sdk.Int
 		changeInDebt       sdk.Int
 	}
 
 	tests := []struct {
-		name          string
-		priorState    state
-		price         string
+		name       string
+		priorState state
+		price      string
 		// also missing moduleParams
 		args          args
 		expectPass    bool
 		expectedState state
 	}{
 		{
-			"addCollatAndDecreaseDebt",
-			state{CDP{ownerAddr, "xrp", i(100), i(2)}, sdk.Coins{c("xrp", 10), c("usdx", 2)}, i(2), CollateralState{"xrp", i(2)}},
+			"addCollateralAndDecreaseDebt",
+			state{CDP{ownerAddr, "xrp", i(100), i(2)}, sdk.Coins{c("usdx", 2), c("xrp", 10)}, i(2), CollateralState{"xrp", i(2)}},
 			"10.345",
 			args{ownerAddr, "xrp", i(10), i(-1)},
 			true,
-			state{CDP{ownerAddr, "xrp", i(110), i(1)}, sdk.Coins{/* 0 xrp */ c("usdx", 1)}, i(1), CollateralState{"xrp", i(1)}},
+			state{CDP{ownerAddr, "xrp", i(110), i(1)}, sdk.Coins{c("usdx", 1) /* 0 xrp */}, i(1), CollateralState{"xrp", i(1)}},
+		},
+		{
+			"removeTooMuchCollateral",
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			"1.00",
+			args{ownerAddr, "xrp", i(-601), i(0)},
+			false,
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+		},
+		{
+			"withdrawTooMuchStableCoin",
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			"1.00",
+			args{ownerAddr, "xrp", i(0), i(301)},
+			false,
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+		},
+		{
+			"createCDPAndWithdrawStable",
+			state{CDP{}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(0), CollateralState{"xrp", i(0)}},
+			"1.00",
+			args{ownerAddr, "xrp", i(5), i(2)},
+			true,
+			state{CDP{ownerAddr, "xrp", i(5), i(2)}, sdk.Coins{c(StableDenom, 12), c("xrp", 5)}, i(2), CollateralState{"xrp", i(2)}},
+		},
+		{
+			"emptyCDP",
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 201), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			"1.00",
+			args{ownerAddr, "xrp", i(-1000), i(-200)},
+			true,
+			state{CDP{}, sdk.Coins{c(StableDenom, 1), c("xrp", 1010)}, i(0), CollateralState{"xrp", i(0)}},
+		},
+		{
+			"invalidCollateralType",
+			state{CDP{}, sdk.Coins{c("shitcoin", 5000000)}, i(0), CollateralState{}},
+			"0.000001",
+			args{ownerAddr, "shitcoin", i(5000000), i(1)}, // ratio of 5:1
+			false,
+			state{CDP{}, sdk.Coins{c("shitcoin", 5000000)}, i(0), CollateralState{}},
 		},
 	}
 	for _, tc := range tests {
@@ -69,9 +112,13 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 			mapp.BeginBlock(abci.RequestBeginBlock{})
 			ctx := mapp.BaseApp.NewContext(false, abci.Header{})
 			// setup store state
-			keeper.setCDP(ctx, tc.priorState.CDP)
+			if tc.priorState.CDP.CollateralDenom != "" { // check if the prior CDP should be created or not (see if an empty one was specified)
+				keeper.setCDP(ctx, tc.priorState.CDP)
+			}
 			keeper.setGlobalDebt(ctx, tc.priorState.GlobalDebt)
-			keeper.setCollateralState(ctx, tc.priorState.CollateralState)
+			if tc.priorState.CollateralState.Denom != "" {
+				keeper.setCollateralState(ctx, tc.priorState.CollateralState)
+			}
 			// TODO close/commit block?
 
 			// call func under test
@@ -81,19 +128,23 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 
 			// check for err
 			if tc.expectPass {
-				require.Nil(t, err)
+				require.Nil(t, err, fmt.Sprint(err))
 			} else {
 				require.NotNil(t, err)
 			}
 			// get new state for verification
-			actualCDP, found := keeper.GetCDP(ctx, tc.priorState.CDP.Owner, tc.priorState.CDP.CollateralDenom)
+			actualCDP, found := keeper.GetCDP(ctx, tc.args.owner, tc.args.collateralDenom)
 			actualGDebt := keeper.GetGlobalDebt(ctx)
-			actualCstate := keeper.GetCollateralState(ctx, tc.priorState.CollateralState.Denom)
+			actualCstate, _ := keeper.GetCollateralState(ctx, tc.args.collateralDenom)
 			// check state
 			require.Equal(t, tc.expectedState.CDP, actualCDP)
+			if tc.expectedState.CDP.CollateralDenom == "" { // if the expected CDP is blank, then expect the CDP to have been deleted (hence not found)
+				require.False(t, found)
+			} else {
+				require.True(t, found)
+			}
 			require.Equal(t, tc.expectedState.GlobalDebt, actualGDebt)
 			require.Equal(t, tc.expectedState.CollateralState, actualCstate)
-			require.True(t, found) // TODO should this be true
 			// check owner balance
 			mock.CheckBalance(t, mapp, ownerAddr, tc.expectedState.OwnerCoins)
 		})
@@ -148,21 +199,11 @@ func TestKeeper_GetSetCollateralState(t *testing.T) {
 
 	// write and read from store
 	keeper.setCollateralState(ctx, cState)
-	readCState := keeper.GetCollateralState(ctx, cState.Denom)
+	readCState, found := keeper.GetCollateralState(ctx, cState.Denom)
 
 	// check before and after match
 	require.Equal(t, cState, readCState)
-}
-
-// TODO decide whether to keep this test. Doesn't do much right now.
-func TestKeeper_GetParams(t *testing.T) {
-	// setup keeper
-	mapp, keeper := setUpMockAppWithoutGenAccounts()
-	mock.SetGenesis(mapp, []auth.Account{}) // initializes the chain, including setting the params
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
-
-	t.Log(keeper.GetParams(ctx))
+	require.True(t, found)
 }
 
 func setUpMockAppWithoutGenAccounts() (*mock.App, Keeper) {

@@ -32,33 +32,29 @@ func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace
 }
 
 // ModifyCDP creates, changes, or deletes a CDP
-// TODO add atomic error handling?
 // TODO can/should this function be split up?
 func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string, changeInCollateral sdk.Int, changeInDebt sdk.Int) sdk.Error {
+
+	// Phase 1: Get state, make changes in memory and check if they're ok.
+
 	// Check collateral type ok
 	p := k.GetParams(ctx)
 	if !p.IsCollateralPresent(collateralDenom) { // maybe abstract this logic into GetCDP
 		return sdk.ErrInternal("collateral type not enabled to create CDPs")
 	}
 
-	// Add/Subtract coins from owner
-	// collateralDenom and CDP collat should always match
-	var err sdk.Error
-	if changeInCollateral.IsPositive() {
-		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralDenom, changeInCollateral)})
-	} else {
-		_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralDenom, changeInCollateral.Neg())})
+	// Check the owner has enough collateral and stable coins
+	if changeInCollateral.IsPositive() { // adding collateral to CDP
+		ok := k.bank.HasCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralDenom, changeInCollateral)})
+		if !ok {
+			return sdk.ErrInsufficientCoins("not enough collateral in sender's account")
+		}
 	}
-	if err != nil {
-		return err
-	}
-	if changeInDebt.IsPositive() {
-		_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.NewCoin(StableDenom, changeInDebt)})
-	} else {
-		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.Coins{sdk.NewCoin(StableDenom, changeInDebt.Neg())})
-	}
-	if err != nil {
-		return err
+	if changeInDebt.IsNegative() { // reducing debt, by adding stable coin to CDP
+		ok := k.bank.HasCoins(ctx, owner, sdk.Coins{sdk.NewCoin(StableDenom, changeInDebt.Neg())})
+		if !ok {
+			return sdk.ErrInsufficientCoins("not enough stable coin in sender's account")
+		}
 	}
 
 	// Add/Subtract collateral and debt recorded in CDP
@@ -76,18 +72,13 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	if cdp.Debt.IsNegative() {
 		return sdk.ErrInternal("can't pay back more debt than exist in CDP")
 	}
-	price := k.pricefeed.GetPrice(ctx, cdp.CollateralDenom).Price // or use collateralDenom
-	currentRatio := sdk.NewDecFromInt(cdp.CollateralAmount).Mul(price).Quo(sdk.NewDecFromInt(cdp.Debt))
-	if currentRatio.LT(p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio) { // TODO LT or LTE ?
+	price := k.pricefeed.GetPrice(ctx, cdp.CollateralDenom).Price         // or use collateralDenom
+	collateralValue := sdk.NewDecFromInt(cdp.CollateralAmount).Mul(price) // split up the calculation to avoid using division to avoid div by 0 errors.
+	minCollateralValue := p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio.Mul(sdk.NewDecFromInt(cdp.Debt))
+	if collateralValue.LT(minCollateralValue) { // TODO LT or LTE ?
 		return sdk.ErrInternal("Change to CDP would put it below liquidation ratio")
 	}
 	// TODO check for dust
-	// Set CDP
-	if cdp.CollateralAmount.IsZero() && cdp.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
-		k.deleteCDP(ctx, cdp)
-	} else {
-		k.setCDP(ctx, cdp) // if subsequent lines fail this needs to be reverted, but the sdk should do that automatically?
-	}
 
 	// Add/Subtract from global debt limit
 	gDebt := k.GetGlobalDebt(ctx)
@@ -98,10 +89,9 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	if gDebt.GT(p.GlobalDebtLimit) {
 		return sdk.ErrInternal("change to CDP would put the system over the global debt limit")
 	}
-	k.setGlobalDebt(ctx, gDebt)
 
 	// Add/Subtract from collateral debt limit
-	cState := k.GetCollateralState(ctx, cdp.CollateralDenom)
+	cState, _ := k.GetCollateralState(ctx, cdp.CollateralDenom)
 	cState.TotalDebt = cState.TotalDebt.Add(changeInDebt)
 	if cState.TotalDebt.IsNegative() {
 		return sdk.ErrInternal("total debt for this collateral type can't be negative") // This should never happen if debt per CDP can't be negative
@@ -109,6 +99,26 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	if cState.TotalDebt.GT(p.GetCollateralParams(cdp.CollateralDenom).DebtLimit) {
 		return sdk.ErrInternal("change to CDP would put the system over the debt limit for this collateral type")
 	}
+
+	// Phase 2: Update all the state
+
+	// change owner's coins (increase or decrease)
+	_, _, err := k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.Coin{collateralDenom, changeInCollateral.Neg()}})
+	if err != nil {
+		panic("error in adding coins") // this shouldn't happen
+	}
+	_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.Coin{StableDenom, changeInDebt}})
+	if err != nil {
+		panic("error in adding coins") // this shouldn't happen
+	}
+	// Set CDP
+	if cdp.CollateralAmount.IsZero() && cdp.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
+		k.deleteCDP(ctx, cdp)
+	} else {
+		k.setCDP(ctx, cdp) // if subsequent lines fail this needs to be reverted, but the sdk should do that automatically?
+	}
+	// set total debts
+	k.setGlobalDebt(ctx, gDebt)
 	k.setCollateralState(ctx, cState)
 
 	return nil
@@ -218,18 +228,18 @@ func (k Keeper) setGlobalDebt(ctx sdk.Context, globalDebt sdk.Int) {
 func (k Keeper) getCollateralStateKey(collateralDenom string) []byte {
 	return []byte(collateralDenom)
 }
-func (k Keeper) GetCollateralState(ctx sdk.Context, collateralDenom string) CollateralState {
+func (k Keeper) GetCollateralState(ctx sdk.Context, collateralDenom string) (CollateralState, bool) {
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// get bytes
 	bz := store.Get(k.getCollateralStateKey(collateralDenom))
 	// unmarshal
 	if bz == nil {
-		panic("collateral state not found") // TODO this should probably create a new cState if not found as new collateral types can be added by governance.
+		return CollateralState{}, false // TODO this should probably create a new cState if not found as new collateral types can be added by governance.
 	}
 	var cState CollateralState
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &cState)
-	return cState
+	return cState, true
 }
 func (k Keeper) setCollateralState(ctx sdk.Context, collateralstate CollateralState) {
 	// get store
@@ -318,14 +328,23 @@ func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sd
 		return k.bank.SubtractCoins(ctx, address, amount)
 	}
 }
+
+// TODO Should this return anything for the gov coin balance? Currently returns nothing.
 func (k Keeper) GetCoins(ctx sdk.Context, address sdk.AccAddress) sdk.Coins {
-	return k.getLiquidatorModuleAccount(ctx).Coins
-	// TODO Should this return anything for the gov coin balance? Currently returns nothing.
+	if address.Equals(LiquidatorAccountAddress) {
+		return k.getLiquidatorModuleAccount(ctx).Coins
+	} else {
+		return k.bank.GetCoins(ctx, address)
+	}
 }
 
-// TODO test this
+// TODO test this with unsorted coins
 func (k Keeper) HasCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) bool {
-	return k.getLiquidatorModuleAccount(ctx).Coins.IsAllGTE(stripGovCoin(amount))
+	if address.Equals(LiquidatorAccountAddress) {
+		return true
+	} else {
+		return k.getLiquidatorModuleAccount(ctx).Coins.IsAllGTE(stripGovCoin(amount))
+	}
 }
 
 func (k Keeper) getLiquidatorModuleAccount(ctx sdk.Context) LiquidatorModuleAccount {
@@ -334,7 +353,7 @@ func (k Keeper) getLiquidatorModuleAccount(ctx sdk.Context) LiquidatorModuleAcco
 	// get bytes
 	bz := store.Get(liquidatorAccountKey)
 	if bz == nil {
-		panic("liquidator account not found")
+		return LiquidatorModuleAccount{} // TODO is it safe to do this, or better to initialize the account explicitly
 	}
 	// unmarshal
 	var lma LiquidatorModuleAccount
