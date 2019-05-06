@@ -1,17 +1,5 @@
 package cdp
 
-/* Notes
-- Using sdk.Int as all the number types to maintain compatibility with internal type of sdk.Coin - saves type conversion when doing maths.
-  Also it allows for changes to a CDP to be expressed as a +ve or -ve number.
-- Only allowing one CDP per account-collateralType pair for now to keep things simple
-*/
-/* TODO
-- what happens if a collateral type is removed from the list of allowed ones?
-- Should the values used to generate a key for a stored struct be in the struct?
-- standardize collateralType var name, keeper names stored in keeper
-- Should ModifyCDP be split up?
-*/
-
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -24,7 +12,6 @@ import (
 const StableDenom = "usdx" // TODO allow to be changed
 const GovDenom = "xrs"
 
-// ---------- Keeper ----------
 type Keeper struct {
 	storeKey       sdk.StoreKey
 	pricefeed      pricefeed.Keeper
@@ -46,20 +33,21 @@ func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace
 
 // ModifyCDP creates, changes, or deletes a CDP
 // TODO add atomic error handling?
-func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType string, changeInCollateral sdk.Int, changeInDebt sdk.Int) sdk.Error {
+// TODO can/should this function be split up?
+func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string, changeInCollateral sdk.Int, changeInDebt sdk.Int) sdk.Error {
 	// Check collateral type ok
 	p := k.GetParams(ctx)
-	if !p.IsCollateralPresent(collateralType) { // maybe abstract this logic into GetCDP
+	if !p.IsCollateralPresent(collateralDenom) { // maybe abstract this logic into GetCDP
 		return sdk.ErrInternal("collateral type not enabled to create CDPs")
 	}
 
 	// Add/Subtract coins from owner
-	// collateralType and CDP collat should always match
+	// collateralDenom and CDP collat should always match
 	var err sdk.Error
 	if changeInCollateral.IsPositive() {
-		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralType, changeInCollateral)})
+		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralDenom, changeInCollateral)})
 	} else {
-		_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralType, changeInCollateral.Neg())})
+		_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralDenom, changeInCollateral.Neg())})
 	}
 	if err != nil {
 		return err
@@ -75,9 +63,9 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 
 	// Add/Subtract collateral and debt recorded in CDP
 	// Get CDP (or create if not exists)
-	cdp, found := k.GetCDP(ctx, owner, collateralType)
+	cdp, found := k.GetCDP(ctx, owner, collateralDenom)
 	if !found {
-		cdp = CDP{Owner: owner, CollateralDenom: collateralType, CollateralAmount: sdk.ZeroInt(), Debt: sdk.ZeroInt()}
+		cdp = CDP{Owner: owner, CollateralDenom: collateralDenom, CollateralAmount: sdk.ZeroInt(), Debt: sdk.ZeroInt()}
 	}
 	// Add/Subtract collateral and debt
 	cdp.CollateralAmount = cdp.CollateralAmount.Add(changeInCollateral)
@@ -88,7 +76,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	if cdp.Debt.IsNegative() {
 		return sdk.ErrInternal("can't pay back more debt than exist in CDP")
 	}
-	price := k.pricefeed.GetPrice(ctx, cdp.CollateralDenom).Price // or use collateralType
+	price := k.pricefeed.GetPrice(ctx, cdp.CollateralDenom).Price // or use collateralDenom
 	currentRatio := sdk.NewDecFromInt(cdp.CollateralAmount).Mul(price).Quo(sdk.NewDecFromInt(cdp.Debt))
 	if currentRatio.LT(p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio) { // TODO LT or LTE ?
 		return sdk.ErrInternal("Change to CDP would put it below liquidation ratio")
@@ -98,11 +86,11 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	if cdp.CollateralAmount.IsZero() && cdp.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
 		k.deleteCDP(ctx, cdp)
 	} else {
-		k.setCDP(ctx, cdp) // if subsequent lines fail this needs to be reverted, but the sdk should do that automatically? // this should delete if it's empty
+		k.setCDP(ctx, cdp) // if subsequent lines fail this needs to be reverted, but the sdk should do that automatically?
 	}
 
 	// Add/Subtract from global debt limit
-	gDebt := k.GetGlobalDebt(ctx) // TODO what happens is not found?
+	gDebt := k.GetGlobalDebt(ctx)
 	gDebt = gDebt.Add(changeInDebt)
 	if gDebt.IsNegative() {
 		return sdk.ErrInternal("global debt can't be negative") // This should never happen if debt per CDP can't be negative
@@ -113,20 +101,20 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType 
 	k.setGlobalDebt(ctx, gDebt)
 
 	// Add/Subtract from collateral debt limit
-	cStats := k.GetCollateralStats(ctx, cdp.CollateralDenom)
-	cStats.TotalDebt = cStats.TotalDebt.Add(changeInDebt)
-	if cStats.TotalDebt.IsNegative() {
+	cState := k.GetCollateralState(ctx, cdp.CollateralDenom)
+	cState.TotalDebt = cState.TotalDebt.Add(changeInDebt)
+	if cState.TotalDebt.IsNegative() {
 		return sdk.ErrInternal("total debt for this collateral type can't be negative") // This should never happen if debt per CDP can't be negative
 	}
-	if cStats.TotalDebt.GT(p.GetCollateralParams(cdp.CollateralDenom).DebtLimit) {
+	if cState.TotalDebt.GT(p.GetCollateralParams(cdp.CollateralDenom).DebtLimit) {
 		return sdk.ErrInternal("change to CDP would put the system over the debt limit for this collateral type")
 	}
-	k.setCollateralStats(ctx, cStats)
+	k.setCollateralState(ctx, cState)
 
 	return nil
 }
 
-// convenience function to allow people to give their CDPs to others
+// TransferCDP allows people to transfer ownership of their CDPs to others
 func (k Keeper) TransferCDP(ctx sdk.Context, from sdk.AccAddress, to sdk.AccAddress, cdpID string) sdk.Error {
 	// TODO
 	return nil
@@ -167,22 +155,19 @@ func (k Keeper) GetParams(ctx sdk.Context) CdpModuleParams {
 
 // This is only needed to be able to setup the store from the genesis file. The keeper should not change any of the params itself.
 func (k Keeper) setParams(ctx sdk.Context, cdpModuleParams CdpModuleParams) {
-	k.paramsSubspace.Set(ctx, cdpModuleParamsKey, &cdpModuleParams) // TODO why is this a pointer
+	k.paramsSubspace.Set(ctx, cdpModuleParamsKey, &cdpModuleParams)
 }
 
-// ---------- Keeper Store Wrappers ----------
-// func (k Keeper) getCDPID(owner sdk.AccAddress, collateralType string) string {
-// 	return owner.String() + collateralType
-// }
-// TODO should this be attached to the keeper or not?
-func (k Keeper) getCDPKey(owner sdk.AccAddress, collateralType string) []byte {
-	return []byte(owner.String() + collateralType)
+// ---------- Store Wrappers ----------
+
+func (k Keeper) getCDPKey(owner sdk.AccAddress, collateralDenom string) []byte {
+	return []byte(owner.String() + collateralDenom)
 }
-func (k Keeper) GetCDP(ctx sdk.Context, owner sdk.AccAddress, collateralType string) (CDP, bool) {
+func (k Keeper) GetCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) (CDP, bool) {
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// get CDP
-	bz := store.Get(k.getCDPKey(owner, collateralType))
+	bz := store.Get(k.getCDPKey(owner, collateralDenom))
 	// unmarshal
 	if bz == nil {
 		return CDP{}, false
@@ -199,7 +184,7 @@ func (k Keeper) setCDP(ctx sdk.Context, cdp CDP) {
 	store.Set(k.getCDPKey(cdp.Owner, cdp.CollateralDenom), bz)
 	// TODO add to iterator
 }
-func (k Keeper) deleteCDP(ctx sdk.Context, cdp CDP) { // TODO should this id the cdp by passing in owner,collateralType pair?
+func (k Keeper) deleteCDP(ctx sdk.Context, cdp CDP) { // TODO should this id the cdp by passing in owner,collateralDenom pair?
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// delete key
@@ -216,7 +201,7 @@ func (k Keeper) GetGlobalDebt(ctx sdk.Context) sdk.Int {
 	bz := store.Get(globalDebtKey)
 	// unmarshal
 	if bz == nil {
-		panic("global debt not found") // TODO what is the correct behavior if not found?
+		panic("global debt not found")
 	}
 	var globalDebt sdk.Int
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &globalDebt)
@@ -230,41 +215,45 @@ func (k Keeper) setGlobalDebt(ctx sdk.Context, globalDebt sdk.Int) {
 	store.Set(globalDebtKey, bz)
 }
 
-func (k Keeper) getCollateralStatsKey(collateralType string) []byte {
-	return []byte(collateralType)
+func (k Keeper) getCollateralStateKey(collateralDenom string) []byte {
+	return []byte(collateralDenom)
 }
-func (k Keeper) GetCollateralStats(ctx sdk.Context, collateralType string) CollateralStats {
+func (k Keeper) GetCollateralState(ctx sdk.Context, collateralDenom string) CollateralState {
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// get bytes
-	bz := store.Get(k.getCollateralStatsKey(collateralType))
+	bz := store.Get(k.getCollateralStateKey(collateralDenom))
 	// unmarshal
 	if bz == nil {
-		panic("collateral stats not found") // TODO what is the correct behavior if not found?
+		panic("collateral state not found") // TODO this should probably create a new cState if not found as new collateral types can be added by governance.
 	}
-	var cStats CollateralStats
-	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &cStats)
-	return cStats
+	var cState CollateralState
+	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &cState)
+	return cState
 }
-func (k Keeper) setCollateralStats(ctx sdk.Context, collateralStats CollateralStats) {
+func (k Keeper) setCollateralState(ctx sdk.Context, collateralstate CollateralState) {
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// marshal and set
-	bz := k.cdc.MustMarshalBinaryLengthPrefixed(collateralStats)
-	store.Set(k.getCollateralStatsKey(collateralStats.Denom), bz)
+	bz := k.cdc.MustMarshalBinaryLengthPrefixed(collateralstate)
+	store.Set(k.getCollateralStateKey(collateralstate.Denom), bz)
 }
 
 // ---------- Weird Bank Stuff ----------
-// This only exists because module accounts aren't a thing yet.
+// This only exists because module accounts aren't really a thing yet.
 // Also because we need module accounts that allow for burning/minting.
 
-// These functions make the CDP module act as a bank keeper, intercepting calls to move coins from the liquidator module account.
+// These functions make the CDP module act as a bank keeper, ie it fulfills the bank.Keeper interface.
+// It intercepts calls to send coins to/from the liquidator module account, otherwise passing the calls onto the normal bank keeper.
 
 // Not sure if module accounts are good, but they make the auction module more general:
 // - startAuction would just "mints" coins, relying on calling function to decrement them somewhere
 // - closeAuction would have to call something specific for the receiver module to accept coins (like liquidationKeeper.AddStableCoins)
 
-// With account modules all CDP functions can probably use just SendCoins to keep things safe (instead of AddCoins and SubtractCoins)
+// The auction and liquidator modules can probably just use SendCoins to keep things safe (instead of AddCoins and SubtractCoins).
+// So they should define their own interfaces which this module should fulfill, rather than this fulfilling the entire bank.Keeper interface.
+
+// bank.Keeper interfaces:
 // type SendKeeper interface {
 // 	type ViewKeeper interface {
 // 		GetCoins(ctx sdk.Context, addr sdk.AccAddress) sdk.Coins
@@ -275,12 +264,20 @@ func (k Keeper) setCollateralStats(ctx sdk.Context, collateralStats CollateralSt
 // 	GetSendEnabled(ctx sdk.Context) bool
 // 	SetSendEnabled(ctx sdk.Context, enabled bool)
 // }
+// type Keeper interface {
+// 	SendKeeper
+// 	SetCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) sdk.Error
+// 	SubtractCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error)
+// 	AddCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error)
+// 	InputOutputCoins(ctx sdk.Context, inputs []Input, outputs []Output) (sdk.Tags, sdk.Error)
+// 	DelegateCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) (sdk.Tags, sdk.Error)
+// 	UndelegateCoins(ctx sdk.Context, addr sdk.AccAddress, amt sdk.Coins) (sdk.Tags, sdk.Error)
 
 var LiquidatorAccountAddress = sdk.AccAddress([]byte("whatever"))
 var liquidatorAccountKey = []byte("liquidatorAccount")
 
 type LiquidatorModuleAccount struct {
-	Coins sdk.Coins // keeps track of seized collateral and surplus usdx
+	Coins sdk.Coins // keeps track of seized collateral, surplus usdx, and mints/burns gov coins
 }
 
 func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error) {
@@ -323,11 +320,12 @@ func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sd
 }
 func (k Keeper) GetCoins(ctx sdk.Context, address sdk.AccAddress) sdk.Coins {
 	return k.getLiquidatorModuleAccount(ctx).Coins
-	// TODO Should this return anything for the XRS balance? Currently returns zero
+	// TODO Should this return anything for the gov coin balance? Currently returns nothing.
 }
+
+// TODO test this
 func (k Keeper) HasCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) bool {
 	return k.getLiquidatorModuleAccount(ctx).Coins.IsAllGTE(stripGovCoin(amount))
-	// TODO test
 }
 
 func (k Keeper) getLiquidatorModuleAccount(ctx sdk.Context) LiquidatorModuleAccount {

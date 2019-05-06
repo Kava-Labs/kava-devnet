@@ -4,12 +4,14 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-type Keeper struct{
-	CurrentPrice Price
+type Keeper struct {
+	CurrentPrice CurrentPrice
 }
 
-type Price struct {
-	Price sdk.Dec
+type CurrentPrice struct {
+	AssetCode string
+	Price     sdk.Dec
+	Expiry    sdk.Int
 }
 
 func NewKeeper(dec string) Keeper {
@@ -17,9 +19,9 @@ func NewKeeper(dec string) Keeper {
 	if err != nil {
 		panic("decimal initialization failed")
 	}
-	return Keeper{Price{v}}
+	return Keeper{CurrentPrice{"", v, sdk.NewInt(0)}}
 }
 
-func (k Keeper) GetPrice(ctx sdk.Context, denom string) Price {
+func (k Keeper) GetPrice(ctx sdk.Context, assetCode string) CurrentPrice {
 	return k.CurrentPrice
 }

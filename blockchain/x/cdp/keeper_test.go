@@ -26,11 +26,11 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 		CDP             CDP
 		OwnerCoins      sdk.Coins
 		GlobalDebt      sdk.Int
-		CollateralStats CollateralStats
+		CollateralState CollateralState
 	}
 	type args struct {
 		owner              sdk.AccAddress
-		collateralType     string
+		collateralDenom     string
 		changeInCollateral sdk.Int
 		changeInDebt       sdk.Int
 	}
@@ -46,11 +46,11 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	}{
 		{
 			"addCollatAndDecreaseDebt",
-			state{CDP{ownerAddr, "xrp", i(100), i(2)}, sdk.Coins{c("xrp", 10), c("usdx", 2)}, i(2), CollateralStats{"xrp", i(2)}},
+			state{CDP{ownerAddr, "xrp", i(100), i(2)}, sdk.Coins{c("xrp", 10), c("usdx", 2)}, i(2), CollateralState{"xrp", i(2)}},
 			"10.345",
 			args{ownerAddr, "xrp", i(10), i(-1)},
 			true,
-			state{CDP{ownerAddr, "xrp", i(110), i(1)}, sdk.Coins{/* 0 xrp */ c("usdx", 1)}, i(1), CollateralStats{"xrp", i(1)}},
+			state{CDP{ownerAddr, "xrp", i(110), i(1)}, sdk.Coins{/* 0 xrp */ c("usdx", 1)}, i(1), CollateralState{"xrp", i(1)}},
 		},
 	}
 	for _, tc := range tests {
@@ -71,11 +71,11 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 			// setup store state
 			keeper.setCDP(ctx, tc.priorState.CDP)
 			keeper.setGlobalDebt(ctx, tc.priorState.GlobalDebt)
-			keeper.setCollateralStats(ctx, tc.priorState.CollateralStats)
+			keeper.setCollateralState(ctx, tc.priorState.CollateralState)
 			// TODO close/commit block?
 
 			// call func under test
-			err := keeper.ModifyCDP(ctx, tc.args.owner, tc.args.collateralType, tc.args.changeInCollateral, tc.args.changeInDebt)
+			err := keeper.ModifyCDP(ctx, tc.args.owner, tc.args.collateralDenom, tc.args.changeInCollateral, tc.args.changeInDebt)
 			mapp.EndBlock(abci.RequestEndBlock{})
 			mapp.Commit()
 
@@ -88,11 +88,11 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 			// get new state for verification
 			actualCDP, found := keeper.GetCDP(ctx, tc.priorState.CDP.Owner, tc.priorState.CDP.CollateralDenom)
 			actualGDebt := keeper.GetGlobalDebt(ctx)
-			actualCStats := keeper.GetCollateralStats(ctx, tc.priorState.CollateralStats.Denom)
+			actualCstate := keeper.GetCollateralState(ctx, tc.priorState.CollateralState.Denom)
 			// check state
 			require.Equal(t, tc.expectedState.CDP, actualCDP)
 			require.Equal(t, tc.expectedState.GlobalDebt, actualGDebt)
-			require.Equal(t, tc.expectedState.CollateralStats, actualCStats)
+			require.Equal(t, tc.expectedState.CollateralState, actualCstate)
 			require.True(t, found) // TODO should this be true
 			// check owner balance
 			mock.CheckBalance(t, mapp, ownerAddr, tc.expectedState.OwnerCoins)
@@ -139,19 +139,19 @@ func TestKeeper_GetSetGDebt(t *testing.T) {
 	require.Equal(t, gDebt, readGDebt)
 }
 
-func TestKeeper_GetSetCollateralStats(t *testing.T) {
-	// setup keeper, create CStats
+func TestKeeper_GetSetCollateralState(t *testing.T) {
+	// setup keeper, create CState
 	mapp, keeper := setUpMockAppWithoutGenAccounts()
 	mapp.BeginBlock(abci.RequestBeginBlock{})
 	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
-	cStats := CollateralStats{"xrp", sdk.NewInt(15400)}
+	cState := CollateralState{"xrp", sdk.NewInt(15400)}
 
 	// write and read from store
-	keeper.setCollateralStats(ctx, cStats)
-	readCStats := keeper.GetCollateralStats(ctx, cStats.Denom)
+	keeper.setCollateralState(ctx, cState)
+	readCState := keeper.GetCollateralState(ctx, cState.Denom)
 
 	// check before and after match
-	require.Equal(t, cStats, readCStats)
+	require.Equal(t, cState, readCState)
 }
 
 // TODO decide whether to keep this test. Doesn't do much right now.

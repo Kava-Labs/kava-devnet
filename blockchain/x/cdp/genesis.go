@@ -4,32 +4,33 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// TODO add initial global debt and collateral states
+
 // GenesisState is the state that must be provided at genesis.
 type GenesisState struct {
 	CdpModuleParams CdpModuleParams `json:"params"`
 }
 
 // NewGenesisState creates a new genesis state.
+// TODO write this
 // func NewGenesisState() GenesisState {
 // 	return GenesisState{CdpModuleParams: CdpModuleParams{}}
 // }
 
 // DefaultGenesisState returns a default genesis state
 func DefaultGenesisState() GenesisState {
-	onePointFive, _ := sdk.NewDecFromStr("1.5") // TODO find nicer way of initializing
-	two, _ := sdk.NewDecFromStr("2.0")
 	return GenesisState{
 		CdpModuleParams{
 			GlobalDebtLimit: sdk.NewInt(1000000),
 			CollateralParams: []CollateralParams{
 				{
 					Denom:            "btc",
-					LiquidationRatio: onePointFive,
+					LiquidationRatio: sdk.MustNewDecFromStr("1.5"),
 					DebtLimit:        sdk.NewInt(500000),
 				},
 				{
 					Denom:            "xrp",
-					LiquidationRatio: two,
+					LiquidationRatio: sdk.MustNewDecFromStr("2.0"),
 					DebtLimit:        sdk.NewInt(500000),
 				},
 			},
@@ -42,6 +43,7 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
 }
 
 // ExportGenesis returns a GenesisState for a given context and keeper.
+// TODO write this
 // func ExportGenesis(ctx sdk.Context, keeper Keeper) GenesisState {
 // 	return NewGenesisState(keeper.GetSendEnabled(ctx))
 // }
