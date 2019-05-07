@@ -8,11 +8,13 @@ research/ds-token*
 research/erc20
 research/ds-value*
 research/ds-auth*
+research/ds-guard*
 research/ds-note*
 research/ds-math*
 research/ds-stop*
 research/ds-roles*
 research/ds-warp*
+research/stats*
 research/sdk-application-tutorial*
 node_modules/
 *.env
