@@ -133,16 +133,37 @@ func (k Keeper) TransferCDP(ctx sdk.Context, from sdk.AccAddress, to sdk.AccAddr
 	return nil
 }
 
-// Not sure if this is really needed. But it allows the cdp module to track total debt and debt per asset.
-func (k Keeper) ConfiscateCDP(ctx sdk.Context, cdpID string) sdk.Error {
+// ConfiscateCDP empties a CDP of collateral and debt and decrements global debt counters. It does not move collateral to another account so is generally unsafe.
+// TODO should this be made safer by moving collateral to liquidatorModuleAccount ?
+// TODO if so how should debt be moved?
+func (k Keeper) ConfiscateCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) sdk.Error {
 	// get CDP
-	// empty CDP of collateral and debt, ie set values to zero
-	// store CDP
+	cdp, found := k.GetCDP(ctx, owner, collateralDenom)
+	if !found {
+		return sdk.ErrInternal("could not find CDP")
+	}
 
 	// update debt per collateral type
-	// update global debt
+	cState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
+	if !found {
+		return sdk.ErrInternal(" could not find collateral state")
+	}
+	cState.TotalDebt = cState.TotalDebt.Sub(cdp.Debt)
 
-	// update global seized debt ? this is what maker does (Vat.grab) but it's not used anywhere
+	// update global debt
+	gDebt := k.GetGlobalDebt(ctx)
+	gDebt = gDebt.Sub(cdp.Debt)
+
+	// TODO update global seized debt? this is what maker does (Vat.grab) but it's not used anywhere
+
+	// empty CDP of collateral and debt
+	cdp.Debt = sdk.ZeroInt()
+	cdp.CollateralAmount = sdk.ZeroInt()
+
+	// store updated state
+	k.setCDP(ctx, cdp)
+	k.setCollateralState(ctx, cState)
+	k.setGlobalDebt(ctx, gDebt)
 	return nil
 }
 

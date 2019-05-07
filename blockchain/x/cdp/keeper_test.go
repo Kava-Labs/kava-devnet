@@ -144,6 +144,41 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	}
 }
 
+func TestConfiscateCDP(t *testing.T) {
+	// Setup
+	const collateral = "xrp"
+	testAddr, _, testPrivKey := generateAccAddress()
+	mapp, keeper := setUpMockAppWithoutGenesis()
+
+	genAcc := auth.BaseAccount{
+		Address: testAddr,
+		Coins:   sdk.Coins{c(collateral, 100)},
+	}
+	mock.SetGenesis(mapp, []auth.Account{&genAcc})
+	// setup pricefeed
+	mapp.BeginBlock(abci.RequestBeginBlock{})
+	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr("1.00"))
+	mapp.EndBlock(abci.RequestEndBlock{})
+	mapp.Commit()
+	// Create CDP
+	msgs := []sdk.Msg{NewMsgCreateOrModifyCDP(testAddr, collateral, i(10), i(5))}
+	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, msgs, []uint64{0}, []uint64{0}, true, true, testPrivKey)
+
+	// Confiscate CDP
+	keeper.ConfiscateCDP(ctx, testAddr, collateral)
+
+	// Check
+	cdp, found := keeper.GetCDP(ctx, testAddr, collateral)
+	require.True(t, found)
+	require.Equal(t, sdk.ZeroInt(), cdp.CollateralAmount)
+	require.Equal(t, sdk.ZeroInt(), cdp.Debt)
+	cState, found := keeper.GetCollateralState(ctx, collateral)
+	require.True(t, found)
+	require.Equal(t, sdk.ZeroInt(), cState.TotalDebt)
+	gDebt := keeper.GetGlobalDebt(ctx)
+	require.Equal(t, sdk.ZeroInt(), gDebt)
+}
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP
 	mapp, keeper := setUpMockAppWithoutGenesis()
