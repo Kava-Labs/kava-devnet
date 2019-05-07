@@ -127,11 +127,11 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	return nil
 }
 
-// TransferCDP allows people to transfer ownership of their CDPs to others
-func (k Keeper) TransferCDP(ctx sdk.Context, from sdk.AccAddress, to sdk.AccAddress, cdpID string) sdk.Error {
-	// TODO
-	return nil
-}
+// TODO
+// // TransferCDP allows people to transfer ownership of their CDPs to others
+// func (k Keeper) TransferCDP(ctx sdk.Context, from sdk.AccAddress, to sdk.AccAddress, collateralDenom string) sdk.Error {
+// 	return nil
+// }
 
 // ConfiscateCDP empties a CDP of collateral and debt and decrements global debt counters. It does not move collateral to another account so is generally unsafe.
 // TODO should this be made safer by moving collateral to liquidatorModuleAccount ?
@@ -167,17 +167,18 @@ func (k Keeper) ConfiscateCDP(ctx sdk.Context, owner sdk.AccAddress, collateralD
 	return nil
 }
 
-func (k Keeper) GetUnderCollateralizedCDPs() sdk.Error {
-	// get current prices of assets // priceFeedKeeper.GetCurrentPrice(denom)
+// TODO
+// func (k Keeper) GetUnderCollateralizedCDPs() sdk.Error {
+// 	// get current prices of assets // priceFeedKeeper.GetCurrentPrice(denom)
 
-	// get an iterator over the CDPs that only includes undercollateralized CDPs
-	//    should be possible to store cdps by a key that is their collateral/debt ratio, then the iterator thing can be used to get only the undercollaterized ones (for a given price)
+// 	// get an iterator over the CDPs that only includes undercollateralized CDPs
+// 	//    should be possible to store cdps by a key that is their collateral/debt ratio, then the iterator thing can be used to get only the undercollaterized ones (for a given price)
 
-	// combine all the iterators for the different assets?
+// 	// combine all the iterators for the different assets?
 
-	// return iterator
-	return nil
-}
+// 	// return iterator
+// 	return nil
+// }
 
 // ---------- Parameter Fetching ----------
 
