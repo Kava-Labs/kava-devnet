@@ -10,6 +10,7 @@ import (
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 
+// Test the bank functionality of the CDP keeper
 func TestAddSubtractGetCoins(t *testing.T) {
 	normalAddr, _, _ := generateAccAddress()
 
@@ -31,7 +32,7 @@ func TestAddSubtractGetCoins(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// setup keeper
-			mapp, keeper := setUpMockAppWithoutGenAccounts()
+			mapp, keeper := setUpMockAppWithoutGenesis()
 			// initialize an account with coins
 			genAcc := auth.BaseAccount{
 				Address: normalAddr,
@@ -39,11 +40,12 @@ func TestAddSubtractGetCoins(t *testing.T) {
 			}
 			mock.SetGenesis(mapp, []auth.Account{&genAcc})
 
-			// create a new context
+			// create a new context and setup the liquidator account
 			mapp.BeginBlock(abci.RequestBeginBlock{})
 			ctx := mapp.BaseApp.NewContext(false, abci.Header{})
 			keeper.setLiquidatorModuleAccount(ctx, LiquidatorModuleAccount{sdk.Coins{c(StableDenom, 100)}}) // set gov coin "balance" to zero
 
+			// perform the test action
 			if tc.add {
 				keeper.AddCoins(ctx, tc.address, tc.amount)
 			} else {

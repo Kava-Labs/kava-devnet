@@ -1,10 +1,13 @@
 package mockpricefeed
 
 import (
+	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
 type Keeper struct {
+	storeKey     sdk.StoreKey
+	cdc          *codec.Codec
 	CurrentPrice CurrentPrice
 }
 
@@ -14,14 +17,24 @@ type CurrentPrice struct {
 	Expiry    sdk.Int
 }
 
-func NewKeeper(dec string) Keeper {
-	v, err := sdk.NewDecFromStr(dec)
-	if err != nil {
-		panic("decimal initialization failed")
+func NewKeeper(cdc *codec.Codec, key sdk.StoreKey) Keeper {
+	return Keeper{
+		storeKey: key,
+		cdc:      cdc,
 	}
-	return Keeper{CurrentPrice{"", v, sdk.NewInt(0)}}
 }
 
-func (k Keeper) GetPrice(ctx sdk.Context, assetCode string) CurrentPrice {
-	return k.CurrentPrice
+func (k Keeper) GetCurrentPrice(ctx sdk.Context, assetCode string) CurrentPrice {
+	// ignores asset code
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get([]byte("currentPrice"))
+	var currentPrice CurrentPrice
+	k.cdc.MustUnmarshalBinaryBare(bz, &currentPrice)
+	return currentPrice
+}
+
+func (k Keeper) SetPrice(ctx sdk.Context, price sdk.Dec) {
+	store := ctx.KVStore(k.storeKey)
+	bz := k.cdc.MustMarshalBinaryBare(CurrentPrice{Price: price})
+	store.Set([]byte("currentPrice"), bz)
 }

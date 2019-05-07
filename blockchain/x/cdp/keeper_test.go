@@ -6,19 +6,13 @@ import (
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
-	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/stretchr/testify/require"
 	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
-
-	"github.com/kava-labs/usdx/blockchain/x/cdp/mockpricefeed"
 )
 
 // How could one reduce the number of params in the test cases. Create a table driven test for each of the 4 add/withdraw collateral/debt?
 // Keeper test just needs a mock keeper, not a whole mock app. Stake does this. It creates an in memory db, and creates all the sub keepers needed. Somewhat verbose though.
-// Problem in that getMockApp returns randomly generated addresses. But I want to use an address in the test cases.
 
 // TODO sort the coins in the test to avoid error in comparing coins. Use sdk.NewCoins in v0.34
 
@@ -42,7 +36,7 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 		name       string
 		priorState state
 		price      string
-		// also missing moduleParams
+		// also missing CDPModuleParams
 		args          args
 		expectPass    bool
 		expectedState state
@@ -99,19 +93,18 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {
 			// setup keeper
-			mapp, keeper := setUpMockAppWithoutGenAccounts()
+			mapp, keeper := setUpMockAppWithoutGenesis()
 			// initialize cdp owner account with coins
 			genAcc := auth.BaseAccount{
 				Address: ownerAddr,
 				Coins:   tc.priorState.OwnerCoins,
 			}
 			mock.SetGenesis(mapp, []auth.Account{&genAcc})
-			// set the pricefeed keeper to return the specified price
-			keeper.pricefeed = mockpricefeed.NewKeeper(tc.price)
 			// create a new context
 			mapp.BeginBlock(abci.RequestBeginBlock{})
 			ctx := mapp.BaseApp.NewContext(false, abci.Header{})
 			// setup store state
+			keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr(tc.price))
 			if tc.priorState.CDP.CollateralDenom != "" { // check if the prior CDP should be created or not (see if an empty one was specified)
 				keeper.setCDP(ctx, tc.priorState.CDP)
 			}
@@ -153,11 +146,10 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP
-	mapp, keeper := setUpMockAppWithoutGenAccounts()
+	mapp, keeper := setUpMockAppWithoutGenesis()
 	mapp.BeginBlock(abci.RequestBeginBlock{})
 	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
 	testAddr, _, _ := generateAccAddress() // TODO is this bad because it is not deterministic?
-	// TODO should this set the genesis state ? Same for tests below
 	cdp := CDP{testAddr, "xrp", sdk.NewInt(412), sdk.NewInt(56)}
 
 	// write and read from store
@@ -177,7 +169,7 @@ func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 }
 func TestKeeper_GetSetGDebt(t *testing.T) {
 	// setup keeper, create GDebt
-	mapp, keeper := setUpMockAppWithoutGenAccounts()
+	mapp, keeper := setUpMockAppWithoutGenesis()
 	mapp.BeginBlock(abci.RequestBeginBlock{})
 	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
 	gDebt := sdk.NewInt(4120000)
@@ -192,7 +184,7 @@ func TestKeeper_GetSetGDebt(t *testing.T) {
 
 func TestKeeper_GetSetCollateralState(t *testing.T) {
 	// setup keeper, create CState
-	mapp, keeper := setUpMockAppWithoutGenAccounts()
+	mapp, keeper := setUpMockAppWithoutGenesis()
 	mapp.BeginBlock(abci.RequestBeginBlock{})
 	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
 	cState := CollateralState{"xrp", sdk.NewInt(15400)}
@@ -205,47 +197,3 @@ func TestKeeper_GetSetCollateralState(t *testing.T) {
 	require.Equal(t, cState, readCState)
 	require.True(t, found)
 }
-
-func setUpMockAppWithoutGenAccounts() (*mock.App, Keeper) {
-	// Create uninitialized mock app
-	mapp := mock.NewApp()
-
-	// Register codecs
-	//RegisterCodec(mapp.Cdc) // Add back once messages are written
-
-	// Create keepers
-	keyCDP := sdk.NewKVStoreKey("cdp")
-	priceFeedKeeper := mockpricefeed.Keeper{}
-	bankKeeper := bank.NewBaseKeeper(mapp.AccountKeeper, mapp.ParamsKeeper.Subspace(bank.DefaultParamspace), bank.DefaultCodespace)
-	cdpKeeper := NewKeeper(mapp.Cdc, keyCDP, mapp.ParamsKeeper.Subspace("cdpSubspace"), priceFeedKeeper, bankKeeper)
-
-	// Register routes
-	//mapp.Router().AddRoute("cdp", NewHandler(cdpKeeper))
-
-	mapp.SetInitChainer(
-		func(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
-			res := mapp.InitChainer(ctx, req)
-			InitGenesis(ctx, cdpKeeper, DefaultGenesisState()) // Create a default genesis state, then set the keeper store to it
-			return res
-		},
-	)
-
-	// Mount and load the stores
-	err := mapp.CompleteSetup(keyCDP)
-	if err != nil {
-		panic("mock app setup failed")
-	}
-
-	return mapp, cdpKeeper
-}
-
-func generateAccAddress() (sdk.AccAddress, crypto.PubKey, crypto.PrivKey) {
-	privKey := ed25519.GenPrivKey()
-	pubKey := privKey.PubKey()
-	addr := sdk.AccAddress(pubKey.Address())
-	return addr, pubKey, privKey
-}
-
-// defined to avoid cluttering test cases with long function name
-func i(in int64) sdk.Int                    { return sdk.NewInt(in) }
-func c(denom string, amount int64) sdk.Coin { return sdk.NewInt64Coin(denom, amount) }

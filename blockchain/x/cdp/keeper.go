@@ -72,7 +72,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	if cdp.Debt.IsNegative() {
 		return sdk.ErrInternal("can't pay back more debt than exist in CDP")
 	}
-	price := k.pricefeed.GetPrice(ctx, cdp.CollateralDenom).Price         // or use collateralDenom
+	price := k.pricefeed.GetCurrentPrice(ctx, cdp.CollateralDenom).Price  // or use collateralDenom
 	collateralValue := sdk.NewDecFromInt(cdp.CollateralAmount).Mul(price) // split up the calculation to avoid using division to avoid div by 0 errors.
 	minCollateralValue := p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio.Mul(sdk.NewDecFromInt(cdp.Debt))
 	if collateralValue.LT(minCollateralValue) { // TODO LT or LTE ?
@@ -91,7 +91,10 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	}
 
 	// Add/Subtract from collateral debt limit
-	cState, _ := k.GetCollateralState(ctx, cdp.CollateralDenom)
+	cState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
+	if !found {
+		cState = CollateralState{Denom: cdp.CollateralDenom, TotalDebt: sdk.ZeroInt()} // Already checked that this denom is authorized, so ok to create new CollateralState
+	}
 	cState.TotalDebt = cState.TotalDebt.Add(changeInDebt)
 	if cState.TotalDebt.IsNegative() {
 		return sdk.ErrInternal("total debt for this collateral type can't be negative") // This should never happen if debt per CDP can't be negative
@@ -235,7 +238,7 @@ func (k Keeper) GetCollateralState(ctx sdk.Context, collateralDenom string) (Col
 	bz := store.Get(k.getCollateralStateKey(collateralDenom))
 	// unmarshal
 	if bz == nil {
-		return CollateralState{}, false // TODO this should probably create a new cState if not found as new collateral types can be added by governance.
+		return CollateralState{}, false
 	}
 	var cState CollateralState
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &cState)
