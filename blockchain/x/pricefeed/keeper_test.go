@@ -25,6 +25,7 @@ func TestKeeper_SetGetAsset(t *testing.T) {
 	assets = helper.keeper.GetAssets(ctx)
 	require.Equal(t, len(assets), 2)
 	require.Equal(t, assets[0].AssetCode, "tst")
+	require.Equal(t, assets[1].AssetCode, "tst2")
 
 	_, found = helper.keeper.GetAsset(ctx, "nan")
 	require.Equal(t, found, false)
@@ -104,8 +105,6 @@ func TestKeeper_GetSetCurrentPrice(t *testing.T) {
 	err = helper.keeper.setCurrentPrices(ctx)
 	require.NoError(t, err)
 	price = helper.keeper.GetCurrentPrice(ctx, "tst")
-	t.Log(price)
 	require.Equal(t, price.Price.Equal(sdk.MustNewDecFromStr("0.345")), true)
 
 }
-

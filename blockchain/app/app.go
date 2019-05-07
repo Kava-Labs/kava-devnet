@@ -10,8 +10,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	"github.com/cosmos/cosmos-sdk/x/staking"
-	"github.com/kava-labs/usdx/blockchain/x/nameservice"
-	"github.com/kava-labs/usdx/blockchain/x/peg"
 	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
@@ -36,19 +34,17 @@ type UsdxApp struct {
 	keyFeeCollection *sdk.KVStoreKey
 	keyParams        *sdk.KVStoreKey
 	tkeyParams       *sdk.TransientStoreKey
-	keyPeg           *sdk.KVStoreKey
 	keyPricefeed     *sdk.KVStoreKey
 
 	accountKeeper       auth.AccountKeeper
 	bankKeeper          bank.Keeper
 	feeCollectionKeeper auth.FeeCollectionKeeper
 	paramsKeeper        params.Keeper
-	pegKeeper           peg.Keeper
-	pfKeeper            pricefeed.Keeper
+	pricefeedKeeper     pricefeed.Keeper
 }
 
 // NewUsdxApp is a constructor function for usdxApp
-func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
+func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 
 	// First define the top level codec that will be shared by the different modules
 	cdc := MakeCodec()
@@ -57,7 +53,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 	bApp := bam.NewBaseApp(appName, logger, db, auth.DefaultTxDecoder(cdc))
 
 	// Here you initialize your application with the store keys it requires
-	var app = &usdxApp{
+	var app = &UsdxApp{
 		BaseApp: bApp,
 		cdc:     cdc,
 
@@ -66,8 +62,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 		keyFeeCollection: sdk.NewKVStoreKey("fee_collection"),
 		keyParams:        sdk.NewKVStoreKey("params"),
 		tkeyParams:       sdk.NewTransientStoreKey("transient_params"),
-		keyPeg:           sdk.NewKVStoreKey("peg"),
-		keyPricefeed:			sdk.NewKVStoreKey("pricefeed")
+		keyPricefeed:     sdk.NewKVStoreKey("pricefeed"),
 	}
 
 	// The ParamsKeeper handles parameter storage for the application
@@ -88,10 +83,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 	// The FeeCollectionKeeper collects transaction fees and renders them to the fee distribution module
 	app.feeCollectionKeeper = auth.NewFeeCollectionKeeper(cdc, app.keyFeeCollection)
 
-	// The NameserviceKeeper handles interactions with the namestore
-	// The peg keeper handles moving xrp into and out of this zone
-	app.pegKeeper = peg.NewKeeper(app.bankKeeper, app.keyPeg, app.cdc)
-
+	app.pricefeedKeeper = pricefeed.NewKeeper(app.keyPricefeed, cdc, pricefeed.DefaultCodespace)
 	// The AnteHandler handles signature verification and transaction pre-processing
 	app.SetAnteHandler(auth.NewAnteHandler(app.accountKeeper, app.feeCollectionKeeper))
 
@@ -99,12 +91,11 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 	// Register the bank and nameservice routes here
 	app.Router().
 		AddRoute("bank", bank.NewHandler(app.bankKeeper)).
-		AddRoute("peg", peg.NewHandler(app.pegKeeper)).
-		AddRoute("pricefeed", pricefeed.NewHandler(app.pfKeeper)
+		AddRoute("pricefeed", pricefeed.NewHandler(app.pricefeedKeeper))
 
 	// The app.QueryRouter is the main query router where each module registers its routes
 	app.QueryRouter().
-		AddRoute("pricefeed", pricefeed.NewQuerier(app.pfKeeper))
+		AddRoute("pricefeed", pricefeed.NewQuerier(app.pricefeedKeeper))
 
 	// The initChainer handles translating the genesis.json file into initial state for the network
 	app.SetInitChainer(app.initChainer)
@@ -115,8 +106,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *usdxApp {
 		app.keyFeeCollection,
 		app.keyParams,
 		app.tkeyParams,
-		app.keyPeg,
-		app.keyPriceFeed
+		app.keyPricefeed,
 	)
 
 	err := app.LoadLatestVersion(app.keyMain)
@@ -134,7 +124,7 @@ type GenesisState struct {
 	Accounts []*auth.BaseAccount `json:"accounts"`
 }
 
-func (app *usdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
+func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	stateJSON := req.AppStateBytes
 
 	genesisState := new(GenesisState)
@@ -155,7 +145,7 @@ func (app *usdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci
 }
 
 // ExportAppStateAndValidators does the things
-func (app *usdxApp) ExportAppStateAndValidators() (appState json.RawMessage, validators []tmtypes.GenesisValidator, err error) {
+func (app *UsdxApp) ExportAppStateAndValidators() (appState json.RawMessage, validators []tmtypes.GenesisValidator, err error) {
 	ctx := app.NewContext(true, abci.Header{})
 	accounts := []*auth.BaseAccount{}
 
@@ -190,8 +180,7 @@ func MakeCodec() *codec.Codec {
 	var cdc = codec.New()
 	auth.RegisterCodec(cdc)
 	bank.RegisterCodec(cdc)
-	nameservice.RegisterCodec(cdc)
-	peg.RegisterCodec(cdc)
+	pricefeed.RegisterCodec(cdc)
 	staking.RegisterCodec(cdc) // TODO is this meant to be here? There's no staking module in this app.
 	sdk.RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
