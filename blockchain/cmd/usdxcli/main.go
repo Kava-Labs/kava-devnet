@@ -20,14 +20,14 @@ import (
 	auth "github.com/cosmos/cosmos-sdk/x/auth/client/rest"
 	bankcmd "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
+	priceclient "github.com/kava-labs/usdx/blockchain/x/pricefeed/client"
+	pricerest "github.com/kava-labs/usdx/blockchain/x/pricefeed/client/rest"
 	"github.com/kava-labs/usdx/blockchain/app"
-	nsclient "github.com/kava-labs/usdx/blockchain/x/nameservice/client"
-	nsrest "github.com/kava-labs/usdx/blockchain/x/nameservice/client/rest"
 )
 
 const (
 	storeAcc = "acc"
-	storeNS  = "nameservice"
+	storePricefeed = "pricefeed"
 )
 
 var defaultCLIHome = os.ExpandEnv("$HOME/.usdxcli")
@@ -40,7 +40,7 @@ func main() {
 	app.SetAddressPrefixes()
 
 	mc := []sdk.ModuleClients{
-		nsclient.NewModuleClient(storeNS, cdc),
+		priceclient.NewModuleClient(storePricefeed, cdc),
 	}
 
 	rootCmd := &cobra.Command{
@@ -77,12 +77,11 @@ func main() {
 
 func registerRoutes(rs *lcd.RestServer) {
 	rs.CliCtx = rs.CliCtx.WithAccountDecoder(rs.Cdc)
-	keys.RegisterRoutes(rs.Mux, rs.CliCtx.Indent)
 	rpc.RegisterRoutes(rs.CliCtx, rs.Mux)
 	tx.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
 	auth.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, storeAcc)
 	bank.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
-	nsrest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, storeNS)
+	pricerest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, storePricefeed)
 }
 
 func queryCmd(cdc *amino.Codec, mc []sdk.ModuleClients) *cobra.Command {
@@ -118,7 +117,7 @@ func txCmd(cdc *amino.Codec, mc []sdk.ModuleClients) *cobra.Command {
 		bankcmd.SendTxCmd(cdc),
 		client.LineBreak,
 		authcmd.GetSignCommand(cdc),
-		authcmd.GetBroadcastCommand(cdc),
+		authcmd.GetMultiSignCommand(cdc),
 		client.LineBreak,
 	)
 
