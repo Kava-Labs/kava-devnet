@@ -4,11 +4,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/mock"
+	pricefeed "github.com/kava-labs/usdx/blockchain/x/pricefeed"
 	abci "github.com/tendermint/tendermint/abci/types"
 	"github.com/tendermint/tendermint/crypto"
 	"github.com/tendermint/tendermint/crypto/ed25519"
-
-	"github.com/kava-labs/usdx/blockchain/x/cdp/mockpricefeed"
 )
 
 // Mock app is an ABCI app with an in memory database.
@@ -29,8 +28,8 @@ func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
 
 	// Create keepers
 	keyCDP := sdk.NewKVStoreKey("cdp")
-	keyPriceFeed := sdk.NewKVStoreKey("pricefeed")
-	priceFeedKeeper := mockpricefeed.NewKeeper(mapp.Cdc, keyPriceFeed)
+	keyPriceFeed := sdk.NewKVStoreKey(pricefeed.StoreKey)
+	priceFeedKeeper := pricefeed.NewKeeper(keyPriceFeed, mapp.Cdc, pricefeed.DefaultCodespace)
 	bankKeeper := bank.NewBaseKeeper(mapp.AccountKeeper, mapp.ParamsKeeper.Subspace(bank.DefaultParamspace), bank.DefaultCodespace)
 	cdpKeeper := NewKeeper(mapp.Cdc, keyCDP, mapp.ParamsKeeper.Subspace("cdpSubspace"), priceFeedKeeper, bankKeeper)
 
