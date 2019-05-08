@@ -6,7 +6,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
 
-	pricefeed "github.com/kava-labs/usdx/blockchain/x/cdp/mockpricefeed" // TODO replace with real module
+	pricefeed "github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 
 const StableDenom = "usdx" // TODO allow to be changed
@@ -322,7 +322,7 @@ func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coi
 		filteredCoins := stripGovCoin(amount)
 		// add coins to module account
 		lma := k.getLiquidatorModuleAccount(ctx)
-		updatedCoins := lma.Coins.Plus(filteredCoins)
+		updatedCoins := lma.Coins.Add(filteredCoins)
 		if updatedCoins.IsAnyNegative() {
 			panic("") // TODO return error, follow how bank does it
 		}
@@ -342,7 +342,7 @@ func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sd
 		filteredCoins := stripGovCoin(amount)
 		// subtract coins from module account
 		lma := k.getLiquidatorModuleAccount(ctx)
-		updatedCoins := lma.Coins.Minus(filteredCoins)
+		updatedCoins := lma.Coins.Sub(filteredCoins)
 		if updatedCoins.IsAnyNegative() {
 			panic("") // TODO return error, follow how bank does it
 		}
