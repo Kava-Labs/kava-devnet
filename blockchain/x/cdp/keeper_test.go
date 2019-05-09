@@ -17,7 +17,8 @@ import (
 // TODO sort the coins in the test to avoid error in comparing coins. Use sdk.NewCoins in v0.34
 
 func TestKeeper_ModifyCDP(t *testing.T) {
-	ownerAddr, _, _ := generateAccAddress()
+	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
+	ownerAddr := addrs[0]
 
 	type state struct { // TODO this allows invalid state to be set up, should it?
 		CDP             CDP
@@ -43,51 +44,51 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	}{
 		{
 			"addCollateralAndDecreaseDebt",
-			state{CDP{ownerAddr, "xrp", i(100), i(2)}, sdk.Coins{c("usdx", 2), c("xrp", 10)}, i(2), CollateralState{"xrp", i(2)}},
+			state{CDP{ownerAddr, "xrp", i(100), i(2)}, cs(c("xrp", 10), c(StableDenom, 2)), i(2), CollateralState{"xrp", i(2)}},
 			"10.345",
 			args{ownerAddr, "xrp", i(10), i(-1)},
 			true,
-			state{CDP{ownerAddr, "xrp", i(110), i(1)}, sdk.Coins{c("usdx", 1) /* 0 xrp */}, i(1), CollateralState{"xrp", i(1)}},
+			state{CDP{ownerAddr, "xrp", i(110), i(1)}, cs( /*  0xrp  */ c(StableDenom, 1)), i(1), CollateralState{"xrp", i(1)}},
 		},
 		{
 			"removeTooMuchCollateral",
-			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, cs(c("xrp", 10), c(StableDenom, 10)), i(200), CollateralState{"xrp", i(200)}},
 			"1.00",
 			args{ownerAddr, "xrp", i(-601), i(0)},
 			false,
-			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, cs(c("xrp", 10), c(StableDenom, 10)), i(200), CollateralState{"xrp", i(200)}},
 		},
 		{
 			"withdrawTooMuchStableCoin",
-			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, cs(c("xrp", 10), c(StableDenom, 10)), i(200), CollateralState{"xrp", i(200)}},
 			"1.00",
 			args{ownerAddr, "xrp", i(0), i(301)},
 			false,
-			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, cs(c("xrp", 10), c(StableDenom, 10)), i(200), CollateralState{"xrp", i(200)}},
 		},
 		{
 			"createCDPAndWithdrawStable",
-			state{CDP{}, sdk.Coins{c(StableDenom, 10), c("xrp", 10)}, i(0), CollateralState{"xrp", i(0)}},
+			state{CDP{}, cs(c("xrp", 10), c(StableDenom, 10)), i(0), CollateralState{"xrp", i(0)}},
 			"1.00",
 			args{ownerAddr, "xrp", i(5), i(2)},
 			true,
-			state{CDP{ownerAddr, "xrp", i(5), i(2)}, sdk.Coins{c(StableDenom, 12), c("xrp", 5)}, i(2), CollateralState{"xrp", i(2)}},
+			state{CDP{ownerAddr, "xrp", i(5), i(2)}, cs(c("xrp", 5), c(StableDenom, 12)), i(2), CollateralState{"xrp", i(2)}},
 		},
 		{
 			"emptyCDP",
-			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, sdk.Coins{c(StableDenom, 201), c("xrp", 10)}, i(200), CollateralState{"xrp", i(200)}},
+			state{CDP{ownerAddr, "xrp", i(1000), i(200)}, cs(c("xrp", 10), c(StableDenom, 201)), i(200), CollateralState{"xrp", i(200)}},
 			"1.00",
 			args{ownerAddr, "xrp", i(-1000), i(-200)},
 			true,
-			state{CDP{}, sdk.Coins{c(StableDenom, 1), c("xrp", 1010)}, i(0), CollateralState{"xrp", i(0)}},
+			state{CDP{}, cs(c("xrp", 1010), c(StableDenom, 1)), i(0), CollateralState{"xrp", i(0)}},
 		},
 		{
 			"invalidCollateralType",
-			state{CDP{}, sdk.Coins{c("shitcoin", 5000000)}, i(0), CollateralState{}},
+			state{CDP{}, cs(c("shitcoin", 5000000)), i(0), CollateralState{}},
 			"0.000001",
 			args{ownerAddr, "shitcoin", i(5000000), i(1)}, // ratio of 5:1
 			false,
-			state{CDP{}, sdk.Coins{c("shitcoin", 5000000)}, i(0), CollateralState{}},
+			state{CDP{}, cs(c("shitcoin", 5000000)), i(0), CollateralState{}},
 		},
 	}
 	for _, tc := range tests {
@@ -101,8 +102,9 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 			}
 			mock.SetGenesis(mapp, []auth.Account{&genAcc})
 			// create a new context
-			mapp.BeginBlock(abci.RequestBeginBlock{})
-			ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+			header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+			mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+			ctx := mapp.BaseApp.NewContext(false, header)
 			// setup store state
 			keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr(tc.price))
 			if tc.priorState.CDP.CollateralDenom != "" { // check if the prior CDP should be created or not (see if an empty one was specified)
@@ -144,10 +146,11 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	}
 }
 
-func TestConfiscateCDP(t *testing.T) {
+func TestKeeper_ConfiscateCDP(t *testing.T) {
 	// Setup
 	const collateral = "xrp"
-	testAddr, _, testPrivKey := generateAccAddress()
+	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
+	testAddr := addrs[0]
 	mapp, keeper := setUpMockAppWithoutGenesis()
 
 	genAcc := auth.BaseAccount{
@@ -156,14 +159,15 @@ func TestConfiscateCDP(t *testing.T) {
 	}
 	mock.SetGenesis(mapp, []auth.Account{&genAcc})
 	// setup pricefeed
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
 	keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr("1.00"))
 	mapp.EndBlock(abci.RequestEndBlock{})
 	mapp.Commit()
 	// Create CDP
-	msgs := []sdk.Msg{NewMsgCreateOrModifyCDP(testAddr, collateral, i(10), i(5))}
-	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, msgs, []uint64{0}, []uint64{0}, true, true, testPrivKey)
+	err := keeper.ModifyCDP(ctx, testAddr, collateral, i(10), i(5))
+	require.Nil(t, err)
 
 	// Confiscate CDP
 	keeper.ConfiscateCDP(ctx, testAddr, collateral)
@@ -182,10 +186,11 @@ func TestConfiscateCDP(t *testing.T) {
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP
 	mapp, keeper := setUpMockAppWithoutGenesis()
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
-	testAddr, _, _ := generateAccAddress() // TODO is this bad because it is not deterministic?
-	cdp := CDP{testAddr, "xrp", sdk.NewInt(412), sdk.NewInt(56)}
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
+	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
+	cdp := CDP{addrs[0], "xrp", sdk.NewInt(412), sdk.NewInt(56)}
 
 	// write and read from store
 	keeper.setCDP(ctx, cdp)
@@ -205,8 +210,9 @@ func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 func TestKeeper_GetSetGDebt(t *testing.T) {
 	// setup keeper, create GDebt
 	mapp, keeper := setUpMockAppWithoutGenesis()
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
 	gDebt := sdk.NewInt(4120000)
 
 	// write and read from store
@@ -220,8 +226,9 @@ func TestKeeper_GetSetGDebt(t *testing.T) {
 func TestKeeper_GetSetCollateralState(t *testing.T) {
 	// setup keeper, create CState
 	mapp, keeper := setUpMockAppWithoutGenesis()
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
 	cState := CollateralState{"xrp", sdk.NewInt(15400)}
 
 	// write and read from store
