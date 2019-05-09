@@ -51,6 +51,7 @@ func (n QueryRawPricesResp) String() string {
 	return strings.Join(n[:], "\n")
 }
 
+// QueryAssetsResp response to a assets query
 type QueryAssetsResp []string
 
 // implement fmt.Stringer

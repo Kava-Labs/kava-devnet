@@ -70,12 +70,12 @@ func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("auction has closed")
 	}
 	// check bid is greater than last bid
-	if !a.Bid.IsLT(bid) { // TODO this should be just GT. TODO add minimum bid size
+	if !a.Bid.IsLT(bid) { // TODO add minimum bid size
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("bid not greater than last bid")
 	}
 	// calculate coin movements
-	outputs := []bankOutput{{bidder, bid}}                                    // new bidder pays bid now
-	inputs := []bankInput{{a.Bidder, a.Bid}, {a.Initiator, bid.Minus(a.Bid)}} // old bidder is paid back, extra goes to seller
+	outputs := []bankOutput{{bidder, bid}}                                  // new bidder pays bid now
+	inputs := []bankInput{{a.Bidder, a.Bid}, {a.Initiator, bid.Sub(a.Bid)}} // old bidder is paid back, extra goes to seller
 
 	// update auction
 	a.Bidder = bidder
@@ -115,8 +115,8 @@ func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 		return []bankOutput{}, []bankInput{}, sdk.ErrInternal("lot not smaller than last lot")
 	}
 	// calculate coin movements
-	outputs := []bankOutput{{bidder, a.Bid}}                                  // new bidder pays bid now
-	inputs := []bankInput{{a.Bidder, a.Bid}, {a.Initiator, a.Lot.Minus(lot)}} // old bidder is paid back, decrease in price for goes to buyer
+	outputs := []bankOutput{{bidder, a.Bid}}                                // new bidder pays bid now
+	inputs := []bankInput{{a.Bidder, a.Bid}, {a.Initiator, a.Lot.Sub(lot)}} // old bidder is paid back, decrease in price for goes to buyer
 
 	// update auction
 	a.Bidder = bidder
@@ -163,8 +163,8 @@ func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.
 		if !a.Bid.IsLT(bid) { // TODO add min bid increments
 			return []bankOutput{}, []bankInput{}, sdk.ErrInternal("bid not greater than last bid")
 		}
-		outputs = []bankOutput{{bidder, bid}}                                    // new bidder pays bid now
-		inputs = []bankInput{{a.Bidder, a.Bid}, {a.Initiator, bid.Minus(a.Bid)}} // old bidder is paid back, extra goes to seller
+		outputs = []bankOutput{{bidder, bid}}                                  // new bidder pays bid now
+		inputs = []bankInput{{a.Bidder, a.Bid}, {a.Initiator, bid.Sub(a.Bid)}} // old bidder is paid back, extra goes to seller
 	case a.Bid.IsLT(a.MaxBid):
 		// Switch over phase
 		if !bid.IsEqual(a.MaxBid) { // require bid == a.MaxBid
@@ -172,9 +172,9 @@ func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.
 		}
 		outputs = []bankOutput{{bidder, bid}} // new bidder pays bid now
 		inputs = []bankInput{
-			{a.Bidder, a.Bid},                 // old bidder is paid back
-			{a.Initiator, bid.Minus(a.Bid)},   // extra goes to seller
-			{a.OtherPerson, a.Lot.Minus(lot)}, //decrease in price for goes to original CDP owner
+			{a.Bidder, a.Bid},               // old bidder is paid back
+			{a.Initiator, bid.Sub(a.Bid)},   // extra goes to seller
+			{a.OtherPerson, a.Lot.Sub(lot)}, //decrease in price for goes to original CDP owner
 		}
 
 	case a.Bid.IsEqual(a.MaxBid):
@@ -182,8 +182,8 @@ func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.
 		if !lot.IsLT(a.Lot) { // TODO add min bid decrements
 			return []bankOutput{}, []bankInput{}, sdk.ErrInternal("lot not smaller than last lot")
 		}
-		outputs = []bankOutput{{bidder, a.Bid}}                                    // new bidder pays bid now
-		inputs = []bankInput{{a.Bidder, a.Bid}, {a.OtherPerson, a.Lot.Minus(lot)}} // old bidder is paid back, decrease in price for goes to original CDP owner
+		outputs = []bankOutput{{bidder, a.Bid}}                                  // new bidder pays bid now
+		inputs = []bankInput{{a.Bidder, a.Bid}, {a.OtherPerson, a.Lot.Sub(lot)}} // old bidder is paid back, decrease in price for goes to original CDP owner
 	default:
 		panic("should never be reached") // TODO
 	}

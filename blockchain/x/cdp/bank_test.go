@@ -11,22 +11,23 @@ import (
 )
 
 // Test the bank functionality of the CDP keeper
-func TestAddSubtractGetCoins(t *testing.T) {
-	normalAddr, _, _ := generateAccAddress()
+func TestKeeper_AddSubtractGetCoins(t *testing.T) {
+	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
+	normalAddr := addrs[0]
 
 	tests := []struct {
 		name          string
 		address       sdk.AccAddress
-		add           bool
+		shouldAdd           bool
 		amount        sdk.Coins
 		expectedCoins sdk.Coins
 	}{
-		{"addNormalAddress", normalAddr, true, sdk.Coins{c(StableDenom, 53)}, sdk.Coins{c(StableDenom, 153), c(GovDenom, 100)}},
-		{"subNormalAddress", normalAddr, false, sdk.Coins{c(StableDenom, 53)}, sdk.Coins{c(StableDenom, 47), c(GovDenom, 100)}},
-		{"addLiquidatorStable", LiquidatorAccountAddress, true, sdk.Coins{c(StableDenom, 53)}, sdk.Coins{c(StableDenom, 153)}},
-		{"subLiquidatorStable", LiquidatorAccountAddress, false, sdk.Coins{c(StableDenom, 53)}, sdk.Coins{c(StableDenom, 47)}},
-		{"addLiquidatorGov", LiquidatorAccountAddress, true, sdk.Coins{c(GovDenom, 53)}, sdk.Coins{c(StableDenom, 100)}},  // no change to balance
-		{"subLiquidatorGov", LiquidatorAccountAddress, false, sdk.Coins{c(GovDenom, 53)}, sdk.Coins{c(StableDenom, 100)}}, // no change to balance
+		{"addNormalAddress", normalAddr, true, cs(c(StableDenom, 53)), cs(c(StableDenom, 153), c(GovDenom, 100))},
+		{"subNormalAddress", normalAddr, false, cs(c(StableDenom, 53)), cs(c(StableDenom, 47), c(GovDenom, 100))},
+		{"addLiquidatorStable", LiquidatorAccountAddress, true, cs(c(StableDenom, 53)), cs(c(StableDenom, 153))},
+		{"subLiquidatorStable", LiquidatorAccountAddress, false, cs(c(StableDenom, 53)), cs(c(StableDenom, 47))},
+		{"addLiquidatorGov", LiquidatorAccountAddress, true, cs(c(GovDenom, 53)), cs(c(StableDenom, 100))},  // no change to balance
+		{"subLiquidatorGov", LiquidatorAccountAddress, false, cs(c(GovDenom, 53)), cs(c(StableDenom, 100))}, // no change to balance
 	}
 
 	for _, tc := range tests {
@@ -36,17 +37,18 @@ func TestAddSubtractGetCoins(t *testing.T) {
 			// initialize an account with coins
 			genAcc := auth.BaseAccount{
 				Address: normalAddr,
-				Coins:   sdk.Coins{c(StableDenom, 100), c(GovDenom, 100)},
+				Coins:   cs(c(StableDenom, 100), c(GovDenom, 100)),
 			}
 			mock.SetGenesis(mapp, []auth.Account{&genAcc})
 
 			// create a new context and setup the liquidator account
-			mapp.BeginBlock(abci.RequestBeginBlock{})
-			ctx := mapp.BaseApp.NewContext(false, abci.Header{})
-			keeper.setLiquidatorModuleAccount(ctx, LiquidatorModuleAccount{sdk.Coins{c(StableDenom, 100)}}) // set gov coin "balance" to zero
+			header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+			mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+			ctx := mapp.BaseApp.NewContext(false, header)
+			keeper.setLiquidatorModuleAccount(ctx, LiquidatorModuleAccount{cs(c(StableDenom, 100))}) // set gov coin "balance" to zero
 
 			// perform the test action
-			if tc.add {
+			if tc.shouldAdd {
 				keeper.AddCoins(ctx, tc.address, tc.amount)
 			} else {
 				keeper.SubtractCoins(ctx, tc.address, tc.amount)

@@ -95,6 +95,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 
 	// The app.QueryRouter is the main query router where each module registers its routes
 	app.QueryRouter().
+		AddRoute(auth.QuerierRoute, auth.NewQuerier(app.accountKeeper)).
 		AddRoute("pricefeed", pricefeed.NewQuerier(app.pricefeedKeeper))
 
 	// The initChainer handles translating the genesis.json file into initial state for the network
@@ -119,9 +120,10 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 
 // GenesisState represents chain state at the start of the chain. Any initial state (account balances) are stored here.
 type GenesisState struct {
-	AuthData auth.GenesisState   `json:"auth"`
-	BankData bank.GenesisState   `json:"bank"`
-	Accounts []*auth.BaseAccount `json:"accounts"`
+	AuthData      auth.GenesisState      `json:"auth"`
+	BankData      bank.GenesisState      `json:"bank"`
+	PricefeedData pricefeed.GenesisState `json:"pricfeed"`
+	Accounts      []*auth.BaseAccount    `json:"accounts"`
 }
 
 func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
@@ -140,7 +142,7 @@ func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci
 
 	auth.InitGenesis(ctx, app.accountKeeper, app.feeCollectionKeeper, genesisState.AuthData)
 	bank.InitGenesis(ctx, app.bankKeeper, genesisState.BankData)
-
+	pricefeed.InitGenesis(ctx, app.pricefeedKeeper, genesisState.PricefeedData)
 	return abci.ResponseInitChain{}
 }
 
