@@ -19,12 +19,6 @@ type testHelper struct {
 	privKeys []crypto.PrivKey
 }
 
-// GenesisState state at gensis
-type GenesisState struct {
-	Assets  []Asset
-	Oracles []Oracle
-}
-
 func getMockApp(t *testing.T, numGenAccs int, genState GenesisState, genAccs []auth.Account) testHelper {
 	mApp := mock.NewApp()
 	RegisterCodec(mApp.Cdc)
