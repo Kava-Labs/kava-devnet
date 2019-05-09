@@ -3,6 +3,7 @@ package auction
 import (
 	"bytes"
 	"fmt"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
@@ -29,9 +30,9 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bank.Keeper, storeKey sdk.StoreKey) 
 // StartForwardAuction starts a normal auction. Known as flap in maker.
 func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin) sdk.Error {
 	// create auction
-	auction, initiatorOutput := NewForwardAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	auction, initiatorOutput := NewForwardAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration)
 	// start the auction
-	err := k.startAuction(ctx, auction, initiatorOutput)
+	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
@@ -43,7 +44,7 @@ func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid s
 	// create auction
 	auction, initiatorOutput := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+maxAuctionDuration)
 	// start the auction
-	err := k.startAuction(ctx, auction, initiatorOutput)
+	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
@@ -53,9 +54,10 @@ func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid s
 // StartForwardReverseAuction starts an auction where bidders bid up to a maxBid, then switch to bidding down on price. Known as flip in maker.
 func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, maxBid sdk.Coin, otherPerson sdk.AccAddress) sdk.Error {
 	// create auction
-	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, sdk.Coin{}, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
+	initialBid := sdk.NewInt64Coin(maxBid.Denom, 0) // set the bidding coin denomination from the specified max bid
+	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
 	// start the auction
-	err := k.startAuction(ctx, auction, initiatorOutput)
+	err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
 		return err
 	}
@@ -127,9 +129,9 @@ func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 	if !found {
 		return sdk.ErrInternal("auction doesn't exist")
 	}
-	// check if auction has timed out
-	if ctx.BlockHeight() > int64(auction.GetEndTime()) { // TODO > or ≥ ?
-		return sdk.ErrInternal("auction has already ended")
+	// error if auction has not reached the end time
+	if ctx.BlockHeight() <= int64(auction.GetEndTime()) { // auctions close at the end of the block with blockheight == EndTime
+		return sdk.ErrInternal("auction can't be closed as curent block height is under auction end time")
 	}
 	// payout to the last bidder
 	coinInput := auction.GetPayout()
@@ -153,8 +155,11 @@ func (k Keeper) getNextAuctionID(ctx sdk.Context) (auctionID, sdk.Error) { // TO
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(k.getNextAuctionIDKey())
 	if bz == nil {
-		panic("initial auctionID never set in genesis")
-		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set") // TODO is this needed? Why not just set it zero here?
+		// if not found, set the id at 0
+		bz = k.cdc.MustMarshalBinaryLengthPrefixed(auctionID(0))
+		store.Set(k.getNextAuctionIDKey(), bz)
+		// TODO Why does the gov module set the id in genesis? :
+		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set")
 	}
 	var auctionID auctionID
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &auctionID)
@@ -261,7 +266,7 @@ func (k Keeper) getQueueIterator(ctx sdk.Context, endTime endTime) sdk.Iterator 
 	// get an interator
 	return store.Iterator(
 		queueKeyPrefix, // start key
-		sdk.PrefixEndBytes(getQueueElementKeyPrefix(endTime)), // end key (exclusive)
+		sdk.PrefixEndBytes(getQueueElementKeyPrefix(endTime+1)), // end key (exclusive) // +1 to make it inclusive
 	)
 }
 

@@ -14,7 +14,7 @@ func init() {
 func RegisterCodec(cdc *codec.Codec) {
 	cdc.RegisterConcrete(MsgPlaceBid{}, "usdx/MsgPlaceBid", nil) // TODO what is the correct name/path for this?
 
-	// Register the Auction interface and concrete types 
+	// Register the Auction interface and concrete types
 	cdc.RegisterInterface((*Auction)(nil), nil)
 	cdc.RegisterConcrete(&ForwardAuction{}, "auction/ForwardAuction", nil)
 	cdc.RegisterConcrete(&ReverseAuction{}, "auction/ReverseAuction", nil)
