@@ -36,3 +36,14 @@ type SortDecs []sdk.Dec
 func (a SortDecs) Len() int           { return len(a) }
 func (a SortDecs) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a SortDecs) Less(i, j int) bool { return a[i].LT(a[j]) }
+
+// GenesisState state at gensis
+type GenesisState struct {
+	Assets  []Asset
+	Oracles []Oracle
+}
+
+// InitGenesis sets distribution information for genesis.
+func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
+	keeper.addAsset(ctx, "xrp", "https://ripple.com/xrp/")
+}
