@@ -4,10 +4,8 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/mock"
-	pricefeed "github.com/kava-labs/usdx/blockchain/x/pricefeed"
+	pricefeed "github.com/kava-labs/usdx/blockchain/x/cdp/mockpricefeed"
 	abci "github.com/tendermint/tendermint/abci/types"
-	"github.com/tendermint/tendermint/crypto"
-	"github.com/tendermint/tendermint/crypto/ed25519"
 )
 
 // Mock app is an ABCI app with an in memory database.
@@ -53,14 +51,7 @@ func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
 	return mapp, cdpKeeper
 }
 
-// Generate a random account address and its corresponding pub/priv keys
-func generateAccAddress() (sdk.AccAddress, crypto.PubKey, crypto.PrivKey) {
-	privKey := ed25519.GenPrivKey()
-	pubKey := privKey.PubKey()
-	addr := sdk.AccAddress(pubKey.Address())
-	return addr, pubKey, privKey
-}
-
 // Avoid cluttering test cases with long function name
 func i(in int64) sdk.Int                    { return sdk.NewInt(in) }
 func c(denom string, amount int64) sdk.Coin { return sdk.NewInt64Coin(denom, amount) }
+func cs(coins ...sdk.Coin) sdk.Coins        { return sdk.NewCoins(coins...) }

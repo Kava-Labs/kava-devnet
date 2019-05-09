@@ -19,12 +19,6 @@ type testHelper struct {
 	privKeys []crypto.PrivKey
 }
 
-// GenesisState state at gensis
-type GenesisState struct {
-	Assets  []Asset
-	Oracles []Oracle
-}
-
 func getMockApp(t *testing.T, numGenAccs int, genState GenesisState, genAccs []auth.Account) testHelper {
 	mApp := mock.NewApp()
 	RegisterCodec(mApp.Cdc)
@@ -55,7 +49,7 @@ func getMockApp(t *testing.T, numGenAccs int, genState GenesisState, genAccs []a
 
 	if genAccs == nil || len(genAccs) == 0 {
 		genAccs, addrs, pubKeys, privKeys = mock.CreateGenAccounts(numGenAccs,
-			sdk.Coins{sdk.NewCoin(sdk.DefaultBondDenom, valTokens)})
+			sdk.NewCoins(sdk.NewCoin(sdk.DefaultBondDenom, valTokens)))
 	}
 
 	mock.SetGenesis(mApp, genAccs)

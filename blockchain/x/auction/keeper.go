@@ -74,7 +74,7 @@ func (k Keeper) startAuction(ctx sdk.Context, auction Auction, initiatorOutput b
 	auction.SetID(newAuctionID)
 
 	// subtract coins from initiator
-	_, _, err = k.bankKeeper.SubtractCoins(ctx, initiatorOutput.Address, sdk.Coins{initiatorOutput.Coin})
+	_, _, err = k.bankKeeper.SubtractCoins(ctx, initiatorOutput.Address, sdk.NewCoins(initiatorOutput.Coin))
 	if err != nil {
 		return err
 	}
@@ -102,14 +102,14 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 	// TODO this will fail if someone tries to update their bid without the full bid amount sitting in their account
 	// sub outputs
 	for _, output := range coinOutputs {
-		_, _, err = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.Coins{output.Coin}) // TODO handle errors properly here. All coin transfers should be atomic. InputOutputCoins may work
+		_, _, err = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.NewCoins(output.Coin)) // TODO handle errors properly here. All coin transfers should be atomic. InputOutputCoins may work
 		if err != nil {
 			panic(err)
 		}
 	}
 	// add inputs
 	for _, input := range coinInputs {
-		_, _, err = k.bankKeeper.AddCoins(ctx, input.Address, sdk.Coins{input.Coin}) // TODO errors
+		_, _, err = k.bankKeeper.AddCoins(ctx, input.Address, sdk.NewCoins(input.Coin)) // TODO errors
 		if err != nil {
 			panic(err)
 		}
@@ -122,6 +122,7 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 }
 
 // CloseAuction closes an auction and distributes funds to the seller and highest bidder.
+// TODO because this is called by the end blocker, it has to be valid for the duration of the EndTime block. Should maybe move this to a begin blocker?
 func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 
 	// get the auction from the store
@@ -130,12 +131,12 @@ func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 		return sdk.ErrInternal("auction doesn't exist")
 	}
 	// error if auction has not reached the end time
-	if ctx.BlockHeight() <= int64(auction.GetEndTime()) { // auctions close at the end of the block with blockheight == EndTime
-		return sdk.ErrInternal("auction can't be closed as curent block height is under auction end time")
+	if ctx.BlockHeight() < int64(auction.GetEndTime()) { // auctions close at the end of the block with blockheight == EndTime
+		return sdk.ErrInternal(fmt.Sprintf("auction can't be closed as curent block height (%v) is under auction end time (%v)", ctx.BlockHeight(), auction.GetEndTime()))
 	}
 	// payout to the last bidder
 	coinInput := auction.GetPayout()
-	_, _, err := k.bankKeeper.AddCoins(ctx, coinInput.Address, sdk.Coins{coinInput.Coin})
+	_, _, err := k.bankKeeper.AddCoins(ctx, coinInput.Address, sdk.NewCoins(coinInput.Coin))
 	if err != nil {
 		return err
 	}
@@ -266,7 +267,7 @@ func (k Keeper) getQueueIterator(ctx sdk.Context, endTime endTime) sdk.Iterator 
 	// get an interator
 	return store.Iterator(
 		queueKeyPrefix, // start key
-		sdk.PrefixEndBytes(getQueueElementKeyPrefix(endTime+1)), // end key (exclusive) // +1 to make it inclusive
+		sdk.PrefixEndBytes(getQueueElementKeyPrefix(endTime)), // end key (apparently exclusive but tests suggested otherwise)
 	)
 }
 
