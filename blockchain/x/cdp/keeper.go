@@ -3,10 +3,7 @@ package cdp
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
-
-	pricefeed "github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 
 const StableDenom = "usdx" // TODO allow to be changed
@@ -14,13 +11,13 @@ const GovDenom = "xrs"
 
 type Keeper struct {
 	storeKey       sdk.StoreKey
-	pricefeed      pricefeed.Keeper
-	bank           bank.Keeper
+	pricefeed      pricefeedKeeper
+	bank           bankKeeper
 	paramsSubspace params.Subspace
 	cdc            *codec.Codec
 }
 
-func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, pricefeed pricefeed.Keeper, bank bank.Keeper) Keeper {
+func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, pricefeed pricefeedKeeper, bank bankKeeper) Keeper {
 	subspace = subspace.WithKeyTable(createParamsKeyTable())
 	return Keeper{
 		storeKey:       storeKey,
@@ -106,13 +103,22 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	// Phase 2: Update all the state
 
 	// change owner's coins (increase or decrease)
-	_, _, err := k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.Coin{collateralDenom, changeInCollateral.Neg()}})
-	if err != nil {
-		panic("error in adding coins") // this shouldn't happen
+	var err sdk.Error
+	if changeInCollateral.IsNegative() {
+		_, _, err = k.bank.AddCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(collateralDenom, changeInCollateral.Neg())))
+	} else {
+		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(collateralDenom, changeInCollateral)))
 	}
-	_, _, err = k.bank.AddCoins(ctx, owner, sdk.Coins{sdk.Coin{StableDenom, changeInDebt}})
 	if err != nil {
-		panic("error in adding coins") // this shouldn't happen
+		panic(err) // this shouldn't happen because coin balance was checked earlier
+	}
+	if changeInDebt.IsNegative() {
+		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(StableDenom, changeInDebt.Neg())))
+	} else {
+		_, _, err = k.bank.AddCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(StableDenom, changeInDebt)))
+	}
+	if err != nil {
+		panic(err) // this shouldn't happen because coin balance was checked earlier
 	}
 	// Set CDP
 	if cdp.CollateralAmount.IsZero() && cdp.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
@@ -179,6 +185,10 @@ func (k Keeper) ConfiscateCDP(ctx sdk.Context, owner sdk.AccAddress, collateralD
 // 	// return iterator
 // 	return nil
 // }
+
+func (k Keeper) GetStableDenom() string {
+	return StableDenom
+}
 
 // ---------- Parameter Fetching ----------
 
@@ -310,6 +320,10 @@ func (k Keeper) setCollateralState(ctx sdk.Context, collateralstate CollateralSt
 
 var LiquidatorAccountAddress = sdk.AccAddress([]byte("whatever"))
 var liquidatorAccountKey = []byte("liquidatorAccount")
+
+func (k Keeper) GetLiquidatorAccountAddress() sdk.AccAddress {
+	return LiquidatorAccountAddress
+}
 
 type LiquidatorModuleAccount struct {
 	Coins sdk.Coins // keeps track of seized collateral, surplus usdx, and mints/burns gov coins
