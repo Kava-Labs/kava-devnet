@@ -11,8 +11,9 @@ import (
 func TestKeeper_SetGetDeleteAuction(t *testing.T) {
 	// setup keeper, create auction
 	mapp, keeper, addresses, _ := setUpMockApp()
-	mapp.BeginBlock(abci.RequestBeginBlock{}) // Without this it panics about "invalid memory address or nil pointer dereference"
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header}) // Without this it panics about "invalid memory address or nil pointer dereference"
+	ctx := mapp.BaseApp.NewContext(false, header)
 	auction, _ := NewForwardAuction(addresses[0], sdk.NewInt64Coin("usdx", 100), sdk.NewInt64Coin("xrs", 0), endTime(1000))
 	id := auctionID(5)
 	auction.SetID(id)
@@ -46,8 +47,9 @@ func TestKeeper_SetGetDeleteAuction(t *testing.T) {
 func TestKeeper_ExpiredAuctionQueue(t *testing.T) {
 	// setup keeper
 	mapp, keeper, _, _ := setUpMockApp()
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
 	// create an example queue
 	type queue []struct {
 		endTime   endTime
