@@ -14,7 +14,10 @@ func EndBlocker(ctx sdk.Context, k Keeper) sdk.Tags {
 		var auctionID auctionID
 		k.cdc.MustUnmarshalBinaryLengthPrefixed(expiredAuctions.Value(), &auctionID)
 
-		k.CloseAuction(ctx, auctionID)
+		err := k.CloseAuction(ctx, auctionID)
+		if err != nil {
+			panic("close auction failed") // TODO how should errors be handled here?
+		}
 	}
 
 	return sdk.Tags{}
