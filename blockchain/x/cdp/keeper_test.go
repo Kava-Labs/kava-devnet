@@ -155,7 +155,7 @@ func TestKeeper_ConfiscateCDP(t *testing.T) {
 
 	genAcc := auth.BaseAccount{
 		Address: testAddr,
-		Coins:   sdk.Coins{c(collateral, 100)},
+		Coins:   cs(c(collateral, 100)),
 	}
 	mock.SetGenesis(mapp, []auth.Account{&genAcc})
 	// setup pricefeed
