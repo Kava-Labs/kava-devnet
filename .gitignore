@@ -16,6 +16,7 @@ research/ds-roles*
 research/ds-warp*
 research/stats*
 research/sdk-application-tutorial*
+research/cosmos-ethereum-bridge
 node_modules/
 *.env
 *.vscode/
