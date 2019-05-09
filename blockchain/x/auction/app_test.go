@@ -20,33 +20,36 @@ func TestApp_ForwardAuction(t *testing.T) {
 	buyer := addresses[1]
 	buyerKey := privKeys[1]
 
-	// Create a block where an auction is started
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})                                                   // make sure first arg is false, otherwise no db writes
+	// Create a block where an auction is started (lot: 20 t1, initialBid: 0 t2)
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)                                                   // make sure first arg is false, otherwise no db writes
 	keeper.StartForwardAuction(ctx, seller, sdk.NewInt64Coin("token1", 20), sdk.NewInt64Coin("token2", 0)) // lot, initialBid
 	mapp.EndBlock(abci.RequestEndBlock{})
 	mapp.Commit()
 
 	// Check seller's coins have decreased
-	mock.CheckBalance(t, mapp, seller, sdk.Coins{sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 100)})
+	mock.CheckBalance(t, mapp, seller, sdk.NewCoins(sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 100)))
 
-	// Deliver a block that contains a PlaceBid tx
+	// Deliver a block that contains a PlaceBid tx (bid: 10 t2, lot: same as starting)
 	msgs := []sdk.Msg{NewMsgPlaceBid(0, buyer, sdk.NewInt64Coin("token2", 10), sdk.NewInt64Coin("token1", 20))} // bid, lot
-	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, msgs, []uint64{0}, []uint64{0}, true, true, buyerKey)
+	header = abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, header, msgs, []uint64{1}, []uint64{0}, true, true, buyerKey) // account number for the buyer account is 1
 
 	// Check buyer's coins have decreased
-	mock.CheckBalance(t, mapp, buyer, sdk.Coins{sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 90)})
+	mock.CheckBalance(t, mapp, buyer, sdk.NewCoins(sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 90)))
 	// Check seller's coins have increased
-	mock.CheckBalance(t, mapp, seller, sdk.Coins{sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 110)})
+	mock.CheckBalance(t, mapp, seller, sdk.NewCoins(sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 110)))
 
-	// Deliver an empty block with high blockheight to trigger the auction to close
-	h := int64(bidDuration + 100)
-	mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
-	mapp.EndBlock(abci.RequestEndBlock{Height: h})
-	mapp.Commit()
-
+	// Deliver empty blocks until the auction should be closed (bid placed on block 3)
+	// TODO is there a way of skipping ahead? This takes a while and prints a lot.
+	for h := mapp.LastBlockHeight() + 1; h < int64(bidDuration)+4; h++ {
+		mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
+		mapp.EndBlock(abci.RequestEndBlock{Height: h})
+		mapp.Commit()
+	}
 	// Check buyer's coins increased
-	mock.CheckBalance(t, mapp, buyer, sdk.Coins{sdk.NewInt64Coin("token1", 120), sdk.NewInt64Coin("token2", 90)})
+	mock.CheckBalance(t, mapp, buyer, sdk.NewCoins(sdk.NewInt64Coin("token1", 120), sdk.NewInt64Coin("token2", 90)))
 }
 
 func TestApp_ReverseAuction(t *testing.T) {
@@ -58,32 +61,35 @@ func TestApp_ReverseAuction(t *testing.T) {
 	//buyerKey := privKeys[1]
 
 	// Create a block where an auction is started
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
 	keeper.StartReverseAuction(ctx, buyer, sdk.NewInt64Coin("token1", 20), sdk.NewInt64Coin("token2", 99)) // buyer, bid, initialLot
 	mapp.EndBlock(abci.RequestEndBlock{})
 	mapp.Commit()
 
 	// Check buyer's coins have decreased
-	mock.CheckBalance(t, mapp, buyer, sdk.Coins{sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 1)})
+	mock.CheckBalance(t, mapp, buyer, sdk.NewCoins(sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 1)))
 
 	// Deliver a block that contains a PlaceBid tx
 	msgs := []sdk.Msg{NewMsgPlaceBid(0, seller, sdk.NewInt64Coin("token1", 20), sdk.NewInt64Coin("token2", 10))} // bid, lot
-	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, msgs, []uint64{0}, []uint64{0}, true, true, sellerKey)
+	header = abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, header, msgs, []uint64{0}, []uint64{0}, true, true, sellerKey)
 
 	// Check seller's coins have decreased
-	mock.CheckBalance(t, mapp, seller, sdk.Coins{sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 100)})
+	mock.CheckBalance(t, mapp, seller, sdk.NewCoins(sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 100)))
 	// Check buyer's coins have increased
-	mock.CheckBalance(t, mapp, buyer, sdk.Coins{sdk.NewInt64Coin("token1", 120), sdk.NewInt64Coin("token2", 90)})
+	mock.CheckBalance(t, mapp, buyer, sdk.NewCoins(sdk.NewInt64Coin("token1", 120), sdk.NewInt64Coin("token2", 90)))
 
-	// Deliver an empty block with high blockheight to trigger the auction to close
-	h := int64(bidDuration + 100)
-	mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
-	mapp.EndBlock(abci.RequestEndBlock{Height: h})
-	mapp.Commit()
+	// Deliver empty blocks until the auction should be closed (bid placed on block 3)
+	for h := mapp.LastBlockHeight() + 1; h < int64(bidDuration)+4; h++ {
+		mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
+		mapp.EndBlock(abci.RequestEndBlock{Height: h})
+		mapp.Commit()
+	}
 
 	// Check seller's coins increased
-	mock.CheckBalance(t, mapp, seller, sdk.Coins{sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 110)})
+	mock.CheckBalance(t, mapp, seller, sdk.NewCoins(sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 110)))
 }
 func TestApp_ForwardReverseAuction(t *testing.T) {
 	// Setup
@@ -95,34 +101,37 @@ func TestApp_ForwardReverseAuction(t *testing.T) {
 	recipient := addresses[2]
 
 	// Create a block where an auction is started
-	mapp.BeginBlock(abci.RequestBeginBlock{})
-	ctx := mapp.BaseApp.NewContext(false, abci.Header{})
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
 	keeper.StartForwardReverseAuction(ctx, seller, sdk.NewInt64Coin("token1", 20), sdk.NewInt64Coin("token2", 50), recipient) // seller, lot, maxBid, otherPerson
 	mapp.EndBlock(abci.RequestEndBlock{})
 	mapp.Commit()
 
 	// Check seller's coins have decreased
-	mock.CheckBalance(t, mapp, seller, sdk.Coins{sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 100)})
+	mock.CheckBalance(t, mapp, seller, sdk.NewCoins(sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 100)))
 
 	// Deliver a block that contains a PlaceBid tx
 	msgs := []sdk.Msg{NewMsgPlaceBid(0, buyer, sdk.NewInt64Coin("token2", 50), sdk.NewInt64Coin("token1", 15))} // bid, lot
-	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, msgs, []uint64{0}, []uint64{0}, true, true, buyerKey)
+	header = abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mock.SignCheckDeliver(t, mapp.Cdc, mapp.BaseApp, header, msgs, []uint64{1}, []uint64{0}, true, true, buyerKey)
 
 	// Check bidder's coins have decreased
-	mock.CheckBalance(t, mapp, buyer, sdk.Coins{sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 50)})
+	mock.CheckBalance(t, mapp, buyer, sdk.NewCoins(sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 50)))
 	// Check seller's coins have increased
-	mock.CheckBalance(t, mapp, seller, sdk.Coins{sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 150)})
+	mock.CheckBalance(t, mapp, seller, sdk.NewCoins(sdk.NewInt64Coin("token1", 80), sdk.NewInt64Coin("token2", 150)))
 	// Check "recipient" has received coins
-	mock.CheckBalance(t, mapp, recipient, sdk.Coins{sdk.NewInt64Coin("token1", 105), sdk.NewInt64Coin("token2", 100)})
+	mock.CheckBalance(t, mapp, recipient, sdk.NewCoins(sdk.NewInt64Coin("token1", 105), sdk.NewInt64Coin("token2", 100)))
 
-	// Deliver an empty block with high blockheight to trigger the auction to close
-	h := int64(bidDuration + 100)
-	mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
-	mapp.EndBlock(abci.RequestEndBlock{Height: h})
-	mapp.Commit()
+	// Deliver empty blocks until the auction should be closed (bid placed on block 3)
+	for h := mapp.LastBlockHeight() + 1; h < int64(bidDuration)+4; h++ {
+		mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
+		mapp.EndBlock(abci.RequestEndBlock{Height: h})
+		mapp.Commit()
+	}
 
 	// Check buyer's coins increased
-	mock.CheckBalance(t, mapp, buyer, sdk.Coins{sdk.NewInt64Coin("token1", 115), sdk.NewInt64Coin("token2", 50)})
+	mock.CheckBalance(t, mapp, buyer, sdk.NewCoins(sdk.NewInt64Coin("token1", 115), sdk.NewInt64Coin("token2", 50)))
 }
 
 func setUpMockApp() (*mock.App, Keeper, []sdk.AccAddress, []crypto.PrivKey) {
@@ -156,7 +165,7 @@ func setUpMockApp() (*mock.App, Keeper, []sdk.AccAddress, []crypto.PrivKey) {
 	}
 
 	// Create a bunch (ie 10) of pre-funded accounts to use for tests
-	genAccs, addrs, _, privKeys := mock.CreateGenAccounts(10, sdk.Coins{sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 100)})
+	genAccs, addrs, _, privKeys := mock.CreateGenAccounts(10, sdk.NewCoins(sdk.NewInt64Coin("token1", 100), sdk.NewInt64Coin("token2", 100)))
 	mock.SetGenesis(mapp, genAccs)
 
 	return mapp, auctionKeeper, addrs, privKeys
