@@ -18,7 +18,7 @@ func TestApp_CreateModifyDeleteCDP(t *testing.T) {
 
 	genAcc := auth.BaseAccount{
 		Address: testAddr,
-		Coins:   sdk.Coins{c("xrp", 100)},
+		Coins:   cs(c("xrp", 100)),
 	}
 	mock.SetGenesis(mapp, []auth.Account{&genAcc})
 	// setup pricefeed, TODO this should be done by sending in a price using a message, or by setting genesis

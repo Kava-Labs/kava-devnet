@@ -42,13 +42,13 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 
 	// Check the owner has enough collateral and stable coins
 	if changeInCollateral.IsPositive() { // adding collateral to CDP
-		ok := k.bank.HasCoins(ctx, owner, sdk.Coins{sdk.NewCoin(collateralDenom, changeInCollateral)})
+		ok := k.bank.HasCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(collateralDenom, changeInCollateral)))
 		if !ok {
 			return sdk.ErrInsufficientCoins("not enough collateral in sender's account")
 		}
 	}
 	if changeInDebt.IsNegative() { // reducing debt, by adding stable coin to CDP
-		ok := k.bank.HasCoins(ctx, owner, sdk.Coins{sdk.NewCoin(StableDenom, changeInDebt.Neg())})
+		ok := k.bank.HasCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(StableDenom, changeInDebt.Neg())))
 		if !ok {
 			return sdk.ErrInsufficientCoins("not enough stable coin in sender's account")
 		}
@@ -405,7 +405,7 @@ func (k Keeper) setLiquidatorModuleAccount(ctx sdk.Context, lma LiquidatorModule
 	store.Set(liquidatorAccountKey, bz)
 }
 func stripGovCoin(coins sdk.Coins) sdk.Coins {
-	filteredCoins := sdk.Coins{}
+	filteredCoins := sdk.NewCoins()
 	for _, c := range coins {
 		if c.Denom != GovDenom {
 			filteredCoins = append(filteredCoins, c)
