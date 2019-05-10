@@ -1,11 +1,11 @@
 package cdp
 
 import (
+	"fmt"
+
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 
 const StableDenom = "usdx" // TODO allow to be changed
@@ -13,13 +13,13 @@ const GovDenom = "xrs"
 
 type Keeper struct {
 	storeKey       sdk.StoreKey
-	pricefeed      pricefeed.Keeper
-	bank           bank.Keeper
+	pricefeed      pricefeedKeeper
+	bank           bankKeeper
 	paramsSubspace params.Subspace
 	cdc            *codec.Codec
 }
 
-func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, pricefeed pricefeed.Keeper, bank bank.Keeper) Keeper {
+func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, pricefeed pricefeedKeeper, bank bankKeeper) Keeper {
 	subspace = subspace.WithKeyTable(createParamsKeyTable())
 	return Keeper{
 		storeKey:       storeKey,
@@ -56,7 +56,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 		}
 	}
 
-	// Add/Subtract collateral and debt recorded in CDP
+	// Change collateral and debt recorded in CDP
 	// Get CDP (or create if not exists)
 	cdp, found := k.GetCDP(ctx, owner, collateralDenom)
 	if !found {
@@ -71,10 +71,11 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	if cdp.Debt.IsNegative() {
 		return sdk.ErrInternal("can't pay back more debt than exist in CDP")
 	}
-	price := k.pricefeed.GetCurrentPrice(ctx, cdp.CollateralDenom).Price  // or use collateralDenom
-	collateralValue := sdk.NewDecFromInt(cdp.CollateralAmount).Mul(price) // split up the calculation to avoid using division to avoid div by 0 errors.
-	minCollateralValue := p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio.Mul(sdk.NewDecFromInt(cdp.Debt))
-	if collateralValue.LT(minCollateralValue) { // TODO LT or LTE ?
+	isUnderCollateralized := cdp.IsUnderCollateralized(
+		k.pricefeed.GetCurrentPrice(ctx, cdp.CollateralDenom).Price,
+		p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio,
+	)
+	if isUnderCollateralized {
 		return sdk.ErrInternal("Change to CDP would put it below liquidation ratio")
 	}
 	// TODO check for dust
@@ -126,7 +127,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	if cdp.CollateralAmount.IsZero() && cdp.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
 		k.deleteCDP(ctx, cdp)
 	} else {
-		k.setCDP(ctx, cdp) // if subsequent lines fail this needs to be reverted, but the sdk should do that automatically?
+		k.setCDP(ctx, cdp)
 	}
 	// set total debts
 	k.setGlobalDebt(ctx, gDebt)
@@ -141,38 +142,48 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 // 	return nil
 // }
 
-// ConfiscateCDP empties a CDP of collateral and debt and decrements global debt counters. It does not move collateral to another account so is generally unsafe.
+// SeizeCDP empties a CDP of collateral and debt and decrements global debt counters. It does not move collateral to another account so is generally unsafe.
 // TODO should this be made safer by moving collateral to liquidatorModuleAccount ?
 // TODO if so how should debt be moved?
-func (k Keeper) ConfiscateCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) sdk.Error {
+func (k Keeper) SeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) (CDP, sdk.Error) {
 	// get CDP
 	cdp, found := k.GetCDP(ctx, owner, collateralDenom)
 	if !found {
-		return sdk.ErrInternal("could not find CDP")
+		return CDP{}, sdk.ErrInternal("could not find CDP")
 	}
 
-	// update debt per collateral type
+	// Check if CDP is undercollateralized
+	p := k.GetParams(ctx)
+	isUnderCollateralized := cdp.IsUnderCollateralized(
+		k.pricefeed.GetCurrentPrice(ctx, cdp.CollateralDenom).Price,
+		p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio,
+	)
+	if !isUnderCollateralized {
+		return CDP{}, sdk.ErrInternal("CDP is not currently under the liquidation ratio")
+	}
+
+	// Update debt per collateral type
 	cState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
 	if !found {
-		return sdk.ErrInternal(" could not find collateral state")
+		return CDP{}, sdk.ErrInternal("could not find collateral state")
 	}
 	cState.TotalDebt = cState.TotalDebt.Sub(cdp.Debt)
 
-	// update global debt
+	// Update global debt
 	gDebt := k.GetGlobalDebt(ctx)
 	gDebt = gDebt.Sub(cdp.Debt)
 
 	// TODO update global seized debt? this is what maker does (Vat.grab) but it's not used anywhere
 
-	// empty CDP of collateral and debt
+	// Empty CDP of collateral and debt // TODO this should just delete the CDP
 	cdp.Debt = sdk.ZeroInt()
 	cdp.CollateralAmount = sdk.ZeroInt()
 
-	// store updated state
+	// Store updated state
 	k.setCDP(ctx, cdp)
 	k.setCollateralState(ctx, cState)
 	k.setGlobalDebt(ctx, gDebt)
-	return nil
+	return cdp, nil
 }
 
 // TODO
@@ -190,6 +201,9 @@ func (k Keeper) ConfiscateCDP(ctx sdk.Context, owner sdk.AccAddress, collateralD
 
 func (k Keeper) GetStableDenom() string {
 	return StableDenom
+}
+func (k Keeper) GetGovDenom() string {
+	return GovDenom
 }
 
 // ---------- Parameter Fetching ----------
@@ -334,13 +348,16 @@ type LiquidatorModuleAccount struct {
 func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error) {
 	// intercept module account
 	if address.Equals(LiquidatorAccountAddress) {
+		if !amount.IsValid() {
+			return nil, nil, sdk.ErrInvalidCoins(amount.String())
+		}
 		// remove gov token from list
 		filteredCoins := stripGovCoin(amount)
 		// add coins to module account
 		lma := k.getLiquidatorModuleAccount(ctx)
 		updatedCoins := lma.Coins.Add(filteredCoins)
 		if updatedCoins.IsAnyNegative() {
-			panic("") // TODO return error, follow how bank does it
+			return amount, nil, sdk.ErrInsufficientCoins(fmt.Sprintf("insufficient account funds; %s < %s", lma.Coins, amount))
 		}
 		lma.Coins = updatedCoins
 		k.setLiquidatorModuleAccount(ctx, lma)
@@ -354,13 +371,16 @@ func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coi
 func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error) {
 	// intercept module account
 	if address.Equals(LiquidatorAccountAddress) {
+		if !amount.IsValid() {
+			return nil, nil, sdk.ErrInvalidCoins(amount.String())
+		}
 		// remove gov token from list
 		filteredCoins := stripGovCoin(amount)
 		// subtract coins from module account
 		lma := k.getLiquidatorModuleAccount(ctx)
-		updatedCoins := lma.Coins.Sub(filteredCoins)
-		if updatedCoins.IsAnyNegative() {
-			panic("") // TODO return error, follow how bank does it
+		updatedCoins, isNegative := lma.Coins.SafeSub(filteredCoins)
+		if isNegative {
+			return amount, nil, sdk.ErrInsufficientCoins(fmt.Sprintf("insufficient account funds; %s < %s", lma.Coins, amount))
 		}
 		lma.Coins = updatedCoins
 		k.setLiquidatorModuleAccount(ctx, lma)

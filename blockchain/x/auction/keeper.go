@@ -6,18 +6,17 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/bank"
 )
 
 type Keeper struct {
-	bankKeeper bank.Keeper
+	bankKeeper bankKeeper
 	storeKey   sdk.StoreKey
 	cdc        *codec.Codec
 	// TODO codespace
 }
 
 // NewKeeper returns a new auction keeper.
-func NewKeeper(cdc *codec.Codec, bankKeeper bank.Keeper, storeKey sdk.StoreKey) Keeper {
+func NewKeeper(cdc *codec.Codec, bankKeeper bankKeeper, storeKey sdk.StoreKey) Keeper {
 	return Keeper{
 		bankKeeper: bankKeeper,
 		storeKey:   storeKey,
