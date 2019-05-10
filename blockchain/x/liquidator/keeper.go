@@ -137,6 +137,7 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 // Stable coins are incremented only by auction.PlaceBid and auction.Close
 // Start Debt/Surplus Auction is only function that depends on debt/stableCoin balances
 // When should this be called?
+// TODO Fix Bug - this does not reduce the total debt counter in the CDP module
 func (k Keeper) settleDebt(ctx sdk.Context) {
 	// calculate max amount of debt and stable coins that can be settled (ie annihilated)
 	debt := k.GetSeizedDebt(ctx)
