@@ -33,7 +33,7 @@ func HandleMsgPostPrice(
 	if !ok {
 		return sdk.ErrInvalidAddress("address not authorized to post prices.").Result()
 	}
-	k.setPrice(ctx, msg.From, msg.AssetCode, msg.Price, msg.Expiry)
+	k.SetPrice(ctx, msg.From, msg.AssetCode, msg.Price, msg.Expiry)
 	return sdk.Result{}
 }
 
@@ -45,6 +45,6 @@ func EndBlocker(ctx sdk.Context, k Keeper) sdk.Tags {
 	// which seems preferable to having state storage values change in response to multiple transactions
 	// which occur during a block
 	//TODO use an iterator and update the prices for all assets in the store
-	k.setCurrentPrices(ctx)
+	k.SetCurrentPrices(ctx)
 	return sdk.Tags{}
 }

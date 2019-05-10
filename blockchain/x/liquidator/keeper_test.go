@@ -11,7 +11,7 @@ import (
 
 	"github.com/kava-labs/usdx/blockchain/x/auction"
 	"github.com/kava-labs/usdx/blockchain/x/cdp"
-	pricefeed "github.com/kava-labs/usdx/blockchain/x/cdp/mockpricefeed" // TODO fix mock price feed thing
+	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 // TODO These tests get a bit messy to setup because liquidator depends on other modules that need setting up
 

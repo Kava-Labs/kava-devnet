@@ -14,5 +14,8 @@ type bankKeeper interface {
 
 type pricefeedKeeper interface {
 	GetCurrentPrice(sdk.Context, string) pricefeed.CurrentPrice
-	SetPrice(sdk.Context, sdk.Dec) // TODO Remove this, it break's integration with the actual pricefeed module
+	// These are used for testing TODO can they be removed from here?
+	AddAsset(sdk.Context, string, string)
+	SetPrice(sdk.Context, sdk.AccAddress, string, sdk.Dec, sdk.Int) (pricefeed.PostedPrice, sdk.Error)
+	SetCurrentPrices(sdk.Context) sdk.Error
 }
