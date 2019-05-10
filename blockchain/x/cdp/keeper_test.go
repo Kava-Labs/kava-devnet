@@ -163,16 +163,17 @@ func TestKeeper_ConfiscateCDP(t *testing.T) {
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
 	keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr("1.00"))
-	mapp.EndBlock(abci.RequestEndBlock{})
-	mapp.Commit()
 	// Create CDP
 	err := keeper.ModifyCDP(ctx, testAddr, collateral, i(10), i(5))
 	require.Nil(t, err)
+	// Reduce price
+	keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr("0.90"))
 
 	// Confiscate CDP
-	keeper.ConfiscateCDP(ctx, testAddr, collateral)
+	_, err = keeper.SeizeCDP(ctx, testAddr, collateral)
 
 	// Check
+	require.Nil(t, err)
 	cdp, found := keeper.GetCDP(ctx, testAddr, collateral)
 	require.True(t, found)
 	require.Equal(t, sdk.ZeroInt(), cdp.CollateralAmount)

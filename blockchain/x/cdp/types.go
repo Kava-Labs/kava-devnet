@@ -13,6 +13,12 @@ type CDP struct {
 	Debt             sdk.Int        // Amount of stable coin drawn from this CDP
 }
 
+func (cdp CDP) IsUnderCollateralized(price sdk.Dec, liquidationRatio sdk.Dec) bool {
+	collateralValue := sdk.NewDecFromInt(cdp.CollateralAmount).Mul(price)
+	minCollateralValue := liquidationRatio.Mul(sdk.NewDecFromInt(cdp.Debt))
+	return collateralValue.LT(minCollateralValue) // TODO LT or LTE?
+}
+
 // CollateralState stores global information tied to a particular collateral type.
 type CollateralState struct {
 	Denom     string  // Type of collateral
