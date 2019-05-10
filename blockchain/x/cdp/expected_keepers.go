@@ -14,5 +14,5 @@ type bankKeeper interface {
 
 type pricefeedKeeper interface {
 	GetCurrentPrice(sdk.Context, string) pricefeed.CurrentPrice
-	SetPrice(sdk.Context, sdk.Dec) // TODO Remove this, it break's integration with the actual pricefeed module
+	// SetPrice(sdk.Context, sdk.Dec)
 }

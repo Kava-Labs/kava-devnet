@@ -3,7 +3,9 @@ package cdp
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
+	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 
 const StableDenom = "usdx" // TODO allow to be changed
@@ -11,13 +13,13 @@ const GovDenom = "xrs"
 
 type Keeper struct {
 	storeKey       sdk.StoreKey
-	pricefeed      pricefeedKeeper
-	bank           bankKeeper
+	pricefeed      pricefeed.Keeper
+	bank           bank.Keeper
 	paramsSubspace params.Subspace
 	cdc            *codec.Codec
 }
 
-func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, pricefeed pricefeedKeeper, bank bankKeeper) Keeper {
+func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, pricefeed pricefeed.Keeper, bank bank.Keeper) Keeper {
 	subspace = subspace.WithKeyTable(createParamsKeyTable())
 	return Keeper{
 		storeKey:       storeKey,
