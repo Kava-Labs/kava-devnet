@@ -10,6 +10,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	"github.com/cosmos/cosmos-sdk/x/staking"
+	"github.com/kava-labs/usdx/blockchain/x/auction"
+	"github.com/kava-labs/usdx/blockchain/x/cdp"
 	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
@@ -29,15 +31,18 @@ type UsdxApp struct {
 	*bam.BaseApp
 	cdc *codec.Codec
 
-	keyMain          *sdk.KVStoreKey
-	keyAccount       *sdk.KVStoreKey
-	keyFeeCollection *sdk.KVStoreKey
-	keyParams        *sdk.KVStoreKey
-	tkeyParams       *sdk.TransientStoreKey
-	keyPricefeed     *sdk.KVStoreKey
-
+	keyMain             *sdk.KVStoreKey
+	keyAccount          *sdk.KVStoreKey
+	keyFeeCollection    *sdk.KVStoreKey
+	keyParams           *sdk.KVStoreKey
+	tkeyParams          *sdk.TransientStoreKey
+	keyPricefeed        *sdk.KVStoreKey
+	keyAuction          *sdk.KVStoreKey
+	keyCdp              *sdk.KVStoreKey
 	accountKeeper       auth.AccountKeeper
+	auctionKeeper       auction.Keeper
 	bankKeeper          bank.Keeper
+	cdpKeeper           cdp.Keeper
 	feeCollectionKeeper auth.FeeCollectionKeeper
 	paramsKeeper        params.Keeper
 	pricefeedKeeper     pricefeed.Keeper
@@ -63,6 +68,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		keyParams:        sdk.NewKVStoreKey("params"),
 		tkeyParams:       sdk.NewTransientStoreKey("transient_params"),
 		keyPricefeed:     sdk.NewKVStoreKey("pricefeed"),
+		keyAuction:       sdk.NewKVStoreKey("auction"),
+		keyCdp:           sdk.NewKVStoreKey("cdp"),
 	}
 
 	// The ParamsKeeper handles parameter storage for the application
@@ -74,16 +81,32 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		app.paramsKeeper.Subspace(auth.DefaultParamspace),
 		auth.ProtoBaseAccount,
 	)
+
 	// The BankKeeper allows you perform sdk.Coins interactions
 	app.bankKeeper = bank.NewBaseKeeper(
 		app.accountKeeper,
 		app.paramsKeeper.Subspace(bank.DefaultParamspace),
 		bank.DefaultCodespace,
 	)
-	// The FeeCollectionKeeper collects transaction fees and renders them to the fee distribution module
-	app.feeCollectionKeeper = auth.NewFeeCollectionKeeper(cdc, app.keyFeeCollection)
 
-	app.pricefeedKeeper = pricefeed.NewKeeper(app.keyPricefeed, cdc, pricefeed.DefaultCodespace)
+	app.auctionKeeper = auction.NewKeeper(
+		app.cdc,
+		app.bankKeeper,
+		app.keyAuction)
+	// The FeeCollectionKeeper collects transaction fees and renders them to the fee distribution module
+	app.feeCollectionKeeper = auth.NewFeeCollectionKeeper(app.cdc, app.keyFeeCollection)
+
+	// pricefeedKeeper handles postPrice transactions posted by oracles
+	app.pricefeedKeeper = pricefeed.NewKeeper(app.keyPricefeed, app.cdc, pricefeed.DefaultCodespace)
+
+	app.cdpKeeper = cdp.NewKeeper(
+		app.cdc,
+		app.keyCdp,
+		app.paramsKeeper.Subspace("cdp"),
+		app.pricefeedKeeper,
+		app.bankKeeper,
+	)
+
 	// The AnteHandler handles signature verification and transaction pre-processing
 	app.SetAnteHandler(auth.NewAnteHandler(app.accountKeeper, app.feeCollectionKeeper))
 
@@ -91,7 +114,9 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 	// Register the bank and nameservice routes here
 	app.Router().
 		AddRoute("bank", bank.NewHandler(app.bankKeeper)).
-		AddRoute("pricefeed", pricefeed.NewHandler(app.pricefeedKeeper))
+		AddRoute("pricefeed", pricefeed.NewHandler(app.pricefeedKeeper)).
+		AddRoute("auction", auction.NewHandler(app.auctionKeeper)).
+		AddRoute("cdp", cdp.NewHandler(app.cdpKeeper))
 
 	// The app.QueryRouter is the main query router where each module registers its routes
 	app.QueryRouter().
@@ -108,6 +133,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		app.keyParams,
 		app.tkeyParams,
 		app.keyPricefeed,
+		app.keyAuction,
+		app.keyCdp,
 	)
 
 	err := app.LoadLatestVersion(app.keyMain)
@@ -123,6 +150,7 @@ type GenesisState struct {
 	AuthData      auth.GenesisState      `json:"auth"`
 	BankData      bank.GenesisState      `json:"bank"`
 	PricefeedData pricefeed.GenesisState `json:"pricfeed"`
+	CdpData       cdp.GenesisState       `json:"cdp"`
 	Accounts      []*auth.BaseAccount    `json:"accounts"`
 }
 
@@ -143,6 +171,7 @@ func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci
 	auth.InitGenesis(ctx, app.accountKeeper, app.feeCollectionKeeper, genesisState.AuthData)
 	bank.InitGenesis(ctx, app.bankKeeper, genesisState.BankData)
 	pricefeed.InitGenesis(ctx, app.pricefeedKeeper, genesisState.PricefeedData)
+	cdp.InitGenesis(ctx, app.cdpKeeper, cdp.DefaultGenesisState())
 	return abci.ResponseInitChain{}
 }
 

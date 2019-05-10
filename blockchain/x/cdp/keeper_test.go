@@ -106,7 +106,12 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 			mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 			ctx := mapp.BaseApp.NewContext(false, header)
 			// setup store state
-			keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr(tc.price))
+			keeper.pricefeed.AddAsset(ctx, "xrp", "xrp test")
+			keeper.pricefeed.SetPrice(
+				ctx, sdk.AccAddress{}, "xrp",
+				sdk.MustNewDecFromStr(tc.price),
+				sdk.NewInt(10))
+			keeper.pricefeed.SetCurrentPrices(ctx)
 			if tc.priorState.CDP.CollateralDenom != "" { // check if the prior CDP should be created or not (see if an empty one was specified)
 				keeper.setCDP(ctx, tc.priorState.CDP)
 			}
@@ -162,7 +167,12 @@ func TestKeeper_ConfiscateCDP(t *testing.T) {
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
-	keeper.pricefeed.SetPrice(ctx, sdk.MustNewDecFromStr("1.00"))
+	keeper.pricefeed.AddAsset(ctx, "xrp", "xrp test")
+	keeper.pricefeed.SetPrice(
+		ctx, sdk.AccAddress{}, "xrp",
+		sdk.MustNewDecFromStr("1.00"),
+		sdk.NewInt(10))
+	keeper.pricefeed.SetCurrentPrices(ctx)
 	mapp.EndBlock(abci.RequestEndBlock{})
 	mapp.Commit()
 	// Create CDP
