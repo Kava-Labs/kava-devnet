@@ -21,6 +21,6 @@ func EndBlocker() {
 
  - rename SeizedDebt to TotalSeizedDebt ?
  - The boundary between the liquidator and the cdp modules is messy. The CDP type is in the liquidator, cdp knows about seizing
- - Standardize name between confiscation and seizing
+ - Call settleDebt somewhere, currently it just racks up.
 */
 package liquidator
