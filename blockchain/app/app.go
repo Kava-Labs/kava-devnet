@@ -12,6 +12,7 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/staking"
 	"github.com/kava-labs/usdx/blockchain/x/auction"
 	"github.com/kava-labs/usdx/blockchain/x/cdp"
+	"github.com/kava-labs/usdx/blockchain/x/liquidator"
 	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 
 	bam "github.com/cosmos/cosmos-sdk/baseapp"
@@ -39,10 +40,12 @@ type UsdxApp struct {
 	keyPricefeed        *sdk.KVStoreKey
 	keyAuction          *sdk.KVStoreKey
 	keyCdp              *sdk.KVStoreKey
+	keyLiquidator       *sdk.KVStoreKey
 	accountKeeper       auth.AccountKeeper
 	auctionKeeper       auction.Keeper
 	bankKeeper          bank.Keeper
 	cdpKeeper           cdp.Keeper
+	liquidatorKeeper    liquidator.Keeper
 	feeCollectionKeeper auth.FeeCollectionKeeper
 	paramsKeeper        params.Keeper
 	pricefeedKeeper     pricefeed.Keeper
@@ -70,6 +73,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		keyPricefeed:     sdk.NewKVStoreKey("pricefeed"),
 		keyAuction:       sdk.NewKVStoreKey("auction"),
 		keyCdp:           sdk.NewKVStoreKey("cdp"),
+		keyLiquidator:    sdk.NewKVStoreKey("liquidator"),
 	}
 
 	// The ParamsKeeper handles parameter storage for the application
@@ -89,10 +93,6 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		bank.DefaultCodespace,
 	)
 
-	app.auctionKeeper = auction.NewKeeper(
-		app.cdc,
-		app.bankKeeper,
-		app.keyAuction)
 	// The FeeCollectionKeeper collects transaction fees and renders them to the fee distribution module
 	app.feeCollectionKeeper = auth.NewFeeCollectionKeeper(app.cdc, app.keyFeeCollection)
 
@@ -106,6 +106,18 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		app.pricefeedKeeper,
 		app.bankKeeper,
 	)
+	app.auctionKeeper = auction.NewKeeper(
+		app.cdc,
+		app.cdpKeeper, // CDP keeper standing in for bank
+		app.keyAuction,
+	)
+	app.liquidatorKeeper = liquidator.NewKeeper(
+		app.cdc,
+		app.keyLiquidator,
+		app.cdpKeeper,
+		app.auctionKeeper,
+		app.cdpKeeper, // CDP keeper standing in for bank
+	)
 
 	// The AnteHandler handles signature verification and transaction pre-processing
 	app.SetAnteHandler(auth.NewAnteHandler(app.accountKeeper, app.feeCollectionKeeper))
@@ -116,7 +128,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		AddRoute("bank", bank.NewHandler(app.bankKeeper)).
 		AddRoute("pricefeed", pricefeed.NewHandler(app.pricefeedKeeper)).
 		AddRoute("auction", auction.NewHandler(app.auctionKeeper)).
-		AddRoute("cdp", cdp.NewHandler(app.cdpKeeper))
+		AddRoute("cdp", cdp.NewHandler(app.cdpKeeper)).
+		AddRoute("liquidator", liquidator.NewHandler(app.liquidatorKeeper))
 
 	// The app.QueryRouter is the main query router where each module registers its routes
 	app.QueryRouter().
@@ -135,6 +148,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		app.keyPricefeed,
 		app.keyAuction,
 		app.keyCdp,
+		app.keyLiquidator,
 	)
 
 	err := app.LoadLatestVersion(app.keyMain)
