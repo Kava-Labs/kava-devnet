@@ -1,25 +1,21 @@
-# WIP XRP Peg Zone
+# WIP CDP Zone
 
 ## Install
 
-    go install ./cmd/usdxd ./cmd/usdxcli ./client
+    go install ./cmd/usdxd ./cmd/usdxcli
 
 ## Setup
 
     usdxd init --chain-id usdx-test
-    usdxcli keys add validatorName
+    usdxcli keys add alice
     # enter a new password
     # re-enter password
-    usdxd add-genesis-account <validatorName's address> 10xrs
+    usdxd add-genesis-account $(usdxcli keys show alice -a) 10xrs,1oracle
     usdxcli config trust-node true
 
 ## Run (in separate windows)
 
     usdxd start
-    client
-
-Send a xrp tx to the multisig using `node xrpPayToMultisig.js` in `examples/js`.
-You will see the client process the transaction and sumbit it to the blockchain.
-
-Check account balance using `usdxcli query account usdx1cwd9fxrxvz5yq5qdrtscvmc4h0l7mqu9hldkfa`
-Querying won't work until there is at least one tx sent to that address.
+    
+Check account balance using `usdxcli query account $(usdxcli keys show alice -a)`
+Check which assets are in the pricefeed `usdxcli query pricefeed assets`
