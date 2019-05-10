@@ -4,7 +4,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/mock"
-	pricefeed "github.com/kava-labs/usdx/blockchain/x/cdp/mockpricefeed"
+	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 

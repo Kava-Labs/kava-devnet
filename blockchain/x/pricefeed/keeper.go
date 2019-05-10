@@ -50,7 +50,8 @@ func NewKeeper(storeKey sdk.StoreKey, cdc *codec.Codec, codespace sdk.CodespaceT
 	}
 }
 
-func (k Keeper) addAsset(
+// AddAsset adds an asset to the store
+func (k Keeper) AddAsset(
 	ctx sdk.Context,
 	assetCode string,
 	desc string,
@@ -64,7 +65,7 @@ func (k Keeper) addAsset(
 }
 
 // SetPrice updates the posted price for a specific oracle
-func (k Keeper) setPrice(
+func (k Keeper) SetPrice(
 	ctx sdk.Context,
 	oracle sdk.AccAddress,
 	assetCode string,
@@ -102,8 +103,8 @@ func (k Keeper) setPrice(
 
 }
 
-// setCurrentPrices updates the price of an asset to the meadian of all valid oracle inputs
-func (k Keeper) setCurrentPrices(ctx sdk.Context) sdk.Error {
+// SetCurrentPrices updates the price of an asset to the meadian of all valid oracle inputs
+func (k Keeper) SetCurrentPrices(ctx sdk.Context) sdk.Error {
 	assets := k.GetAssets(ctx)
 	for _, v := range assets {
 		assetCode := v.AssetCode

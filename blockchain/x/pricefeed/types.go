@@ -45,5 +45,5 @@ type GenesisState struct {
 
 // InitGenesis sets distribution information for genesis.
 func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
-	keeper.addAsset(ctx, "xrp", "https://ripple.com/xrp/")
+	keeper.AddAsset(ctx, "xrp", "https://ripple.com/xrp/")
 }
