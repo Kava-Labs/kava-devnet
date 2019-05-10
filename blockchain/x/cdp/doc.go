@@ -7,8 +7,11 @@ Notes
  - Only allowing one CDP per account-collateralDenom pair for now to keep things simple.
  - Genesis forces the global debt to start at zero, ie no stable coins in existence. This could be changed.
  - The undercollateralized CDP iterator hasn't been implemented, to keep things simpler.
+ - The cdp module fulfills the bank keeper interface and keeps track of the liquidator module's coins. This won't be needed with module accounts.
 
 TODO
+ - remove fake bank keeper and setup a proper liquidator module account
+ - replace the mockpricefeed with the real one
  - returning ErrInternal doesn't show error message in tests
  - what happens if a collateral type is removed from the list of allowed ones?
  - Should the values used to generate a key for a stored struct be in the struct?

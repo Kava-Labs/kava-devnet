@@ -6,7 +6,7 @@ import (
 )
 
 type cdpKeeper interface {
-	SeizeCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, sdk.Error) // TODO is the dependence on a cdp type here bad?
+	SeizeCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, sdk.Error) // TODO is the dependence on a cdp type here not so good?
 	GetStableDenom() string                                            // TODO can this be removed somehow?
 	GetGovDenom() string
 	GetLiquidatorAccountAddress() sdk.AccAddress // This won't need to exist once the module account is defined in this module (instead of in the cdp module)

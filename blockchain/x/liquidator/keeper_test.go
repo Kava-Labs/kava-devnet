@@ -32,9 +32,9 @@ func TestKeeper_StartCollateralAuction(t *testing.T) {
 
 	require.Nil(t, err)
 	// Check CDP is changed correctly
-	modifiedCDP, found := keeper.GetSeizedCDP(ctx, cdp.Owner, cdp.CollateralDenom)
-	require.True(t, found)
-	require.Equal(t, SeizedCDP{Owner: testAddr, CollateralAmount: i(0), CollateralDenom: "btc", Debt: i(0)}, modifiedCDP)
+	_, found := keeper.GetSeizedCDP(ctx, cdp.Owner, cdp.CollateralDenom)
+	require.False(t, found)
+	//require.Equal(t, SeizedCDP{Owner: testAddr, CollateralAmount: i(0), CollateralDenom: "btc", Debt: i(0)}, modifiedCDP)
 	// TODO Check Auction was started by using mocked auction keeper?
 }
 
@@ -79,7 +79,7 @@ func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
 	mapp := mock.NewApp()
 
 	// Register codecs
-	//RegisterCodec(mapp.Cdc)
+	RegisterCodec(mapp.Cdc)
 
 	// Create keepers
 	keyPriceFeed := sdk.NewKVStoreKey(pricefeed.StoreKey)
@@ -94,7 +94,7 @@ func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
 	liquidatorKeeper := NewKeeper(mapp.Cdc, keyLiquidator, cdpKeeper, auctionKeeper, cdpKeeper) // Note: cdp keeper stands in for bank keeper
 
 	// Register routes
-	//mapp.Router().AddRoute("liquidator", NewHandler(liquidatorKeeper))
+	mapp.Router().AddRoute("liquidator", NewHandler(liquidatorKeeper))
 
 	mapp.SetInitChainer(
 		func(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
