@@ -3,9 +3,6 @@ package liquidator
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	//"github.com/cosmos/cosmos-sdk/x/bank"
-	//"github.com/kava-labs/usdx/blockchain/x/auction"
-	//"github.com/kava-labs/usdx/blockchain/x/cdp"
 )
 
 type Keeper struct {
@@ -26,22 +23,23 @@ func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, cdpKeeper cdpKeeper, auc
 	}
 }
 
-var ( // TODO move into params, pick defaults
-	CollateralAuctionMaxBid = sdk.NewInt(1000)
-	DebtAuctionSize         = sdk.NewInt(1000)
-	SurplusAuctionSize      = sdk.NewInt(1000)
+var ( // TODO move into params, pick good defaults
+	CollateralAuctionMaxBid = sdk.NewInt(1000) // known as Cat.ilk[n].lump in maker
+	DebtAuctionSize         = sdk.NewInt(1000) // known as Vow.sump in maker
+	SurplusAuctionSize      = sdk.NewInt(1000) // known as Voe.bump in maker
 )
 
+// StartCollateralAuction pulls collateral out of a (seized) CDP and sells it in an auction for stable coin. Excess collateral goes to the original CDP owner
+// Known as Cat.flip in maker
 // result: stable coin is transferred to moduleAccount, collateral is transferred from module account to buyer, (and any excess collateral is transferred to original CDP owner)
-func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAddress, collateralDenom string) sdk.Error { // aka Cat.flip
+func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAddress, collateralDenom string) sdk.Error {
 	// Get Seized CDP
 	seizedCDP, found := k.GetSeizedCDP(ctx, originalOwner, collateralDenom)
 	if !found {
 		return sdk.ErrInternal("CDP not found")
 	}
 	// Calculate how much stable coin to try and raise in this auction
-	//params := GetParams(ctx) // TODO write this and fix
-	stableToRaise := sdk.MinInt(seizedCDP.Debt, CollateralAuctionMaxBid) // TODO better name
+	stableToRaise := sdk.MinInt(seizedCDP.Debt, CollateralAuctionMaxBid)
 	// calculate how much collateral to sell: collateralToSell/collateral = stableToRaise/debt
 	// TODO test the maths here
 	collateralToSell := sdk.NewDecFromInt(stableToRaise).Quo(sdk.NewDecFromInt(seizedCDP.Debt)).Mul(sdk.NewDecFromInt(seizedCDP.CollateralAmount)).RoundInt()
@@ -57,16 +55,22 @@ func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAdd
 		return err
 	}
 	// Store seizedCDP
-	k.setSeizedCDP(ctx, seizedCDP) // TODO delete if empty
+	if seizedCDP.CollateralAmount.IsZero() && seizedCDP.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
+		k.deleteSeizedCDP(ctx, seizedCDP)
+	} else {
+		k.setSeizedCDP(ctx, seizedCDP)
+	}
 	return nil
 }
 
+// StartDebtAuction sells off minted gov coin to raise set amounts of stable coin.
+// Known as Vow.flop in maker
 // result: minted gov coin moved to highest bidder, stable coin moved to moduleAccount
-func (k Keeper) StartDebtAuction(ctx sdk.Context) sdk.Error { // aka Vow.flop
+func (k Keeper) StartDebtAuction(ctx sdk.Context) sdk.Error {
 	// TODO call k.settleDebt(ctx) ?
-	// get seizedDebt
-	seizedDebt := k.GetSeizedDebt(ctx)
+
 	// check the seized debt is above a threshold
+	seizedDebt := k.GetSeizedDebt(ctx)
 	if seizedDebt.LT(DebtAuctionSize) {
 		return sdk.ErrInternal("not enough seized debt to start an auction")
 	}
@@ -85,8 +89,10 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) sdk.Error { // aka Vow.flop
 	return nil
 }
 
-// end result: stable coin removed from module account (eventually to buyer), gov coin transferred to module account
-func (k Keeper) StartSurplusAuction(ctx sdk.Context) sdk.Error { // aka Vow.flap
+// StartSurplusAuction sells off excess stable coin in exchange for gov coin, which is burned
+// Known as Vow.flap in maker
+// result: stable coin removed from module account (eventually to buyer), gov coin transferred to module account
+func (k Keeper) StartSurplusAuction(ctx sdk.Context) sdk.Error {
 	// TODO call k.settleDebt(ctx) ?
 
 	// check there is enough surplus to be sold
@@ -112,7 +118,7 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 	// Seize the cdp in the cdp module
 	cdp, err := k.cdpKeeper.SeizeCDP(ctx, owner, collateralDenom) // just empties it and updates the global debt in cdp the module
 	if err != nil {
-		return err // cdp could be not found, or not undercollateralized
+		return err // cdp could be not found, or not under collateralized
 	}
 
 	// increment the total seized debt by cdp.debt. // aka Awe
@@ -132,11 +138,12 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 	return nil
 }
 
+// SettleDebt removes equal amounts of debt and stable coin from the liquidator's reserves
 // Only this function decrements debt and stable coin balances
 // Debt is incremented only by SeizeUnderCollateralizedCDP
 // Stable coins are incremented only by auction.PlaceBid and auction.Close
 // Start Debt/Surplus Auction is only function that depends on debt/stableCoin balances
-// When should this be called?
+// TODO When should this be called? Should it be called with an amount, rather than annihilating the maximum.
 // TODO Fix Bug - this does not reduce the total debt counter in the CDP module
 func (k Keeper) settleDebt(ctx sdk.Context) {
 	// calculate max amount of debt and stable coins that can be settled (ie annihilated)
@@ -150,6 +157,8 @@ func (k Keeper) settleDebt(ctx sdk.Context) {
 	// subtract stable coin from moduleAccout
 	k.bankKeeper.SubtractCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), sdk.Coins{sdk.NewCoin(k.cdpKeeper.GetStableDenom(), settleAmount)})
 }
+
+// ---------- Store Wrappers ----------
 
 func (k Keeper) getSeizedCDPKey(owner sdk.AccAddress, collateralDenom string) []byte {
 	return []byte(owner.String() + collateralDenom)
@@ -169,8 +178,13 @@ func (k Keeper) setSeizedCDP(ctx sdk.Context, cdp SeizedCDP) {
 	bz := k.cdc.MustMarshalBinaryLengthPrefixed(cdp)
 	store.Set(k.getSeizedCDPKey(cdp.Owner, cdp.CollateralDenom), bz)
 }
+func (k Keeper) deleteSeizedCDP(ctx sdk.Context, cdp SeizedCDP) {
+	store := ctx.KVStore(k.storeKey)
+	store.Delete(k.getSeizedCDPKey(cdp.Owner, cdp.CollateralDenom))
+}
 
-// TODO could abstract setting and getting seized debt into add/subtract
+// TODO setting and getting seized debt could be abstracted into add/subtract
+// seized debt is known as Awe in maker
 func (k Keeper) getSeizedDebtKey() []byte {
 	return []byte("seizedDebt")
 }
