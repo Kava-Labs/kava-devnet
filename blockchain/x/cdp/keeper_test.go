@@ -195,8 +195,6 @@ func TestKeeper_ConfiscateCDP(t *testing.T) {
 	cState, found := keeper.GetCollateralState(ctx, collateral)
 	require.True(t, found)
 	require.Equal(t, sdk.ZeroInt(), cState.TotalDebt)
-	gDebt := keeper.GetGlobalDebt(ctx)
-	require.Equal(t, sdk.ZeroInt(), gDebt)
 }
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP

@@ -67,7 +67,8 @@ func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAdd
 // Known as Vow.flop in maker
 // result: minted gov coin moved to highest bidder, stable coin moved to moduleAccount
 func (k Keeper) StartDebtAuction(ctx sdk.Context) sdk.Error {
-	// TODO call k.settleDebt(ctx) ?
+	// TODO where is the best place for settleDebt to be called? Should it be a message type?
+	k.settleDebt(ctx)
 
 	// check the seized debt is above a threshold
 	seizedDebt := k.GetSeizedDebt(ctx)
@@ -93,7 +94,8 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) sdk.Error {
 // Known as Vow.flap in maker
 // result: stable coin removed from module account (eventually to buyer), gov coin transferred to module account
 func (k Keeper) StartSurplusAuction(ctx sdk.Context) sdk.Error {
-	// TODO call k.settleDebt(ctx) ?
+	// TODO where is the best place for settleDebt to be called? Should it be a message type?
+	k.settleDebt(ctx)
 
 	// check there is enough surplus to be sold
 	surplus := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
@@ -138,24 +140,30 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 	return nil
 }
 
-// SettleDebt removes equal amounts of debt and stable coin from the liquidator's reserves
-// Only this function decrements debt and stable coin balances
+// SettleDebt removes equal amounts of debt and stable coin from the liquidator's reserves (and also updates the total debt counter)
+// Debt and stable coin balances decreased by this function and by starting surplus/debt auctions
 // Debt is incremented only by SeizeUnderCollateralizedCDP
 // Stable coins are incremented only by auction.PlaceBid and auction.Close
 // Start Debt/Surplus Auction is only function that depends on debt/stableCoin balances
-// TODO When should this be called? Should it be called with an amount, rather than annihilating the maximum.
-// TODO Fix Bug - this does not reduce the total debt counter in the CDP module
-func (k Keeper) settleDebt(ctx sdk.Context) {
+// TODO When should this be called? Should it be called with an amount, rather than annihilating the maximum? Currently called before starting the surplus/debt auctions
+func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 	// calculate max amount of debt and stable coins that can be settled (ie annihilated)
 	debt := k.GetSeizedDebt(ctx)
 	stableCoins := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
 	settleAmount := sdk.MinInt(debt, stableCoins)
+
+	// Call cdp module to reduce GlobalDebt. This can fail if genesis not set
+	err := k.cdpKeeper.ReduceGlobalDebt(ctx, settleAmount)
+	if err != nil {
+		return err
+	}
 
 	// decrement total seized debt by above amount
 	k.setSeizedDebt(ctx, debt.Sub(settleAmount))
 
 	// subtract stable coin from moduleAccout
 	k.bankKeeper.SubtractCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), sdk.Coins{sdk.NewCoin(k.cdpKeeper.GetStableDenom(), settleAmount)})
+	return nil
 }
 
 // ---------- Store Wrappers ----------
