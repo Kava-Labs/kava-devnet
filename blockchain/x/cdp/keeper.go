@@ -8,9 +8,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/params"
 )
 
+// StableDenom asset code of the dollar-denominated debt coin
 const StableDenom = "usdx" // TODO allow to be changed
+// GovDenom asset code of the goverance coin
 const GovDenom = "xrs"
 
+// Keeper cdp Keeper
 type Keeper struct {
 	storeKey       sdk.StoreKey
 	pricefeed      pricefeedKeeper
@@ -19,6 +22,7 @@ type Keeper struct {
 	cdc            *codec.Codec
 }
 
+// NewKeeper creates a new keeper
 func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, pricefeed pricefeedKeeper, bank bankKeeper) Keeper {
 	subspace = subspace.WithKeyTable(createParamsKeyTable())
 	return Keeper{
