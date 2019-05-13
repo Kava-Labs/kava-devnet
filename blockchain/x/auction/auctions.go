@@ -1,6 +1,8 @@
 package auction
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -16,7 +18,10 @@ type Auction interface {
 	PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error)
 	GetEndTime() endTime // auctions close at the end of the block with blockheight EndTime (ie bids placed in that block are valid)
 	GetPayout() bankInput
+	String() string
 }
+
+// BaseAuction type shared by all Auctions
 type BaseAuction struct {
 	ID         ID
 	Initiator  sdk.AccAddress // Person who starts the auction. Giving away Lot (aka seller in a forward auction)
@@ -42,14 +47,36 @@ type bankOutput struct {
 func (a BaseAuction) GetID() ID           { return a.ID }
 func (a *BaseAuction) SetID(id ID)        { a.ID = id }
 func (a BaseAuction) GetEndTime() endTime { return a.EndTime }
+
+// GetPayout implements Auction
 func (a BaseAuction) GetPayout() bankInput {
 	return bankInput{a.Bidder, a.Lot}
 }
 
+func (e endTime) String() string {
+	return string(e)
+}
+
+func (a BaseAuction) String() string {
+	return fmt.Sprintf(`Auction %d:
+  Initiator:              %s
+  Lot:               			%s
+  Bidder:            		  %s
+  Bid:        						%s
+  End Time:   						%s
+  Max End Time:      			%s`,
+		a.GetID(), a.Initiator, a.Lot,
+		a.Bidder, a.Bid, a.GetEndTime().String(),
+		a.MaxEndTime.String(),
+	)
+}
+
+// ForwardAuction type for forward auctions
 type ForwardAuction struct {
 	BaseAuction
 }
 
+// NewForwardAuction creates a new forward auction
 func NewForwardAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime) (ForwardAuction, bankOutput) {
 	auction := ForwardAuction{BaseAuction{
 		// no ID
@@ -63,6 +90,8 @@ func NewForwardAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin,
 	output := bankOutput{seller, lot}
 	return auction, output
 }
+
+// PlaceBid implements Auction
 func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
 	// TODO check lot size matches lot?
 	// check auction has not closed
@@ -86,10 +115,12 @@ func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 	return outputs, inputs, nil
 }
 
+// ReverseAuction type for reverse auctions
 type ReverseAuction struct {
 	BaseAuction
 }
 
+// NewReverseAuction creates a new reverse auction
 func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, endTime endTime) (ReverseAuction, bankOutput) {
 	auction := ReverseAuction{BaseAuction{
 		// no ID
@@ -103,6 +134,8 @@ func NewReverseAuction(buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin, 
 	output := bankOutput{buyer, initialLot}
 	return auction, output
 }
+
+// PlaceBid implements Auction
 func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error) {
 
 	// check bid size matches bid?
@@ -127,12 +160,30 @@ func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 	return outputs, inputs, nil
 }
 
+// ForwardReverseAuction type for forward reverse auction
 type ForwardReverseAuction struct {
 	BaseAuction
 	MaxBid      sdk.Coin
 	OtherPerson sdk.AccAddress // TODO rename, this is normally the original CDP owner
 }
 
+func (a ForwardReverseAuction) String() string {
+	return fmt.Sprintf(`Auction %d:
+  Initiator:              %s
+  Lot:               			%s
+  Bidder:            		  %s
+  Bid:        						%s
+  End Time:   						%s
+	Max End Time:      			%s
+	Max Bid									%s
+	Other Person						%s`,
+		a.GetID(), a.Initiator, a.Lot,
+		a.Bidder, a.Bid, a.GetEndTime().String(),
+		a.MaxEndTime.String(), a.MaxBid, a.OtherPerson,
+	)
+}
+
+// NewForwardReverseAuction creates a new forward reverse auction
 func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin, endTime endTime, maxBid sdk.Coin, otherPerson sdk.AccAddress) (ForwardReverseAuction, bankOutput) {
 	auction := ForwardReverseAuction{
 		BaseAuction: BaseAuction{
@@ -150,6 +201,7 @@ func NewForwardReverseAuction(seller sdk.AccAddress, lot sdk.Coin, initialBid sd
 	return auction, output
 }
 
+// PlaceBid implements auction
 func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) (outputs []bankOutput, inputs []bankInput, err sdk.Error) {
 	// check auction has not closed
 	if currentBlockHeight > a.EndTime {

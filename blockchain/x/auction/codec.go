@@ -12,7 +12,7 @@ func init() {
 
 // RegisterCodec registers concrete types on the codec.
 func RegisterCodec(cdc *codec.Codec) {
-	cdc.RegisterConcrete(MsgPlaceBid{}, "usdx/MsgPlaceBid", nil) // TODO what is the correct name/path for this?
+	cdc.RegisterConcrete(MsgPlaceBid{}, "auction/MsgPlaceBid", nil) // TODO what is the correct name/path for this?
 
 	// Register the Auction interface and concrete types
 	cdc.RegisterInterface((*Auction)(nil), nil)
