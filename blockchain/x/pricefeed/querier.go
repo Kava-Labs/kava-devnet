@@ -17,7 +17,7 @@ const (
 	// QueryCurrentPrice command for current price queries
 	QueryCurrentPrice = "price"
 	// QueryRawPrices command for raw price queries
-	QueryRawPrices = "pricefeed"
+	QueryRawPrices = "rawprices"
 	// QueryAssets command for assets query
 	QueryAssets = "assets"
 )
