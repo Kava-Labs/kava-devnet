@@ -20,6 +20,7 @@ func GetCmdCurrentPrice(queryRoute string, cdc *codec.Codec) *cobra.Command {
 			assetCode := args[0]
 			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/price/%s", queryRoute, assetCode), nil)
 			if err != nil {
+				fmt.Printf("error when querying current price - %s", err)
 				fmt.Printf("could not get current price for - %s \n", string(assetCode))
 				return nil
 			}
