@@ -10,6 +10,6 @@ func init() {
 
 // RegisterCodec registers concrete types on the codec.
 func RegisterCodec(cdc *codec.Codec) {
-	cdc.RegisterConcrete(MsgCreateOrModifyCDP{}, "usdx/MsgCreateOrModifyCDP", nil) // TODO what is the correct name/path for this?
-	cdc.RegisterConcrete(MsgTransferCDP{}, "usdx/MsgTransferCDP", nil)
+	cdc.RegisterConcrete(MsgCreateOrModifyCDP{}, "cdp/MsgCreateOrModifyCDP", nil) // TODO what is the correct name/path for this?
+	cdc.RegisterConcrete(MsgTransferCDP{}, "cdp/MsgTransferCDP", nil)
 }
