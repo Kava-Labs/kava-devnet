@@ -23,7 +23,6 @@ func TestKeeper_EndBlocker(t *testing.T) {
 	EndBlocker(ctx.WithBlockHeight(expiryBlock), keeper)
 
 	// check auction has been closed
-	_, found := keeper.getAuction(ctx, 0)
+	_, found := keeper.GetAuction(ctx, 0)
 	require.False(t, found)
-
 }
