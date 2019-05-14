@@ -4,74 +4,80 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/stretchr/testify/require"
-	abci "github.com/tendermint/tendermint/abci/types"
 )
-// TODO These tests get a bit messy to setup because liquidator depends on other modules that need setting up
 
 func TestKeeper_StartCollateralAuction(t *testing.T) {
 	// Setup keeper and context
-	mapp, keeper := setUpMockAppWithoutGenesis()
-	mock.SetGenesis(mapp, []auth.Account{}) // TODO maybe move into mock app creation, if no gen accounts are needed
-	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
-	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
-	ctx := mapp.BaseApp.NewContext(false, header)
+	ctx, k := setupTestKeepers()
 	// Create seized CDP
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
-	testAddr := addrs[0]
-	cdp := SeizedCDP{Owner: testAddr, CollateralAmount: i(10), CollateralDenom: "btc", Debt: i(500)}
-	keeper.setSeizedCDP(ctx, cdp)
-	keeper.bankKeeper.AddCoins(ctx, keeper.cdpKeeper.GetLiquidatorAccountAddress(), cs(sdk.NewCoin(cdp.CollateralDenom, cdp.CollateralAmount)))
+	cdp := SeizedCDP{Owner: addrs[0], CollateralAmount: i(10), CollateralDenom: "btc", Debt: i(500)}
+	k.liquidatorKeeper.setSeizedCDP(ctx, cdp)
+	k.liquidatorKeeper.bankKeeper.AddCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), cs(sdk.NewCoin(cdp.CollateralDenom, cdp.CollateralAmount)))
 
 	// Start auction
-	_, err := keeper.StartCollateralAuction(ctx, cdp.Owner, cdp.CollateralDenom)
+	auctionID, err := k.liquidatorKeeper.StartCollateralAuction(ctx, cdp.Owner, cdp.CollateralDenom)
 
 	// Check CDP is changed correctly
-	require.Nil(t, err)
-	_, found := keeper.GetSeizedCDP(ctx, cdp.Owner, cdp.CollateralDenom)
+	require.NoError(t, err)
+	_, found := k.liquidatorKeeper.GetSeizedCDP(ctx, cdp.Owner, cdp.CollateralDenom)
 	require.False(t, found)
-	//require.Equal(t, SeizedCDP{Owner: testAddr, CollateralAmount: i(0), CollateralDenom: "btc", Debt: i(0)}, modifiedCDP)
-	// TODO Check Auction was started by using mocked auction keeper?
+	_, found = k.auctionKeeper.GetAuction(ctx, auctionID)
+	require.True(t, found)
 }
 
-// func TestKeeper_settleDebt(t *testing.T) {
-// 	// Setup keeper and context
-// 	mapp, keeper := setUpMockAppWithoutGenesis()
-// 	mock.SetGenesis(mapp, []auth.Account{})
-// 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
-// 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
-// 	ctx := mapp.BaseApp.NewContext(false, header)
-// 	// create debt
-// 	debt := sdk.NewInt(528452456344)
-// 	keeper.setSeizedDebt(ctx, debt)
-// 	keeper.cdpKeeper.setGlobalDebt(ctx, debt) // TODO this won't work. Setting genesis would be better.
-// 	// create stable coins
-// 	keeper.bankKeeper.AddCoins(ctx, keeper.cdpKeeper.GetLiquidatorAccountAddress(), cs(sdk.NewCoin(keeper.cdpKeeper.GetStableDenom(), debt)))
+func TestKeeper_StartDebtAuction(t *testing.T) {
+	// Setup
+	ctx, k := setupTestKeepers()
+	initSDebt := i(2000)
+	k.liquidatorKeeper.setSeizedDebt(ctx, initSDebt)
 
-// 	// cancel out debt
-// 	err := keeper.settleDebt(ctx)
+	// Execute
+	auctionID, err := k.liquidatorKeeper.StartDebtAuction(ctx)
 
-// 	require.Nil(t, err)
-// 	// Check there is no more debt or stable coins
-// 	require.Equal(t, i(0), keeper.GetSeizedDebt(ctx))
-// 	require.Equal(t, i(0), keeper.bankKeeper.GetCoins(ctx, keeper.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(keeper.cdpKeeper.GetStableDenom()))
-// }
+	// Check
+	require.Nil(t, err)
+	require.Equal(t,
+		initSDebt.Sub(DebtAuctionSize),
+		k.liquidatorKeeper.GetSeizedDebt(ctx),
+	)
+	_, found := k.auctionKeeper.GetAuction(ctx, auctionID)
+	require.True(t, found)
+}
+
+func TestKeeper_StartSurplusAuction(t *testing.T) {
+	// Setup
+	ctx, k := setupTestKeepers()
+	initSurplus := i(2000)
+	k.liquidatorKeeper.bankKeeper.AddCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), cs(sdk.NewCoin(k.cdpKeeper.GetStableDenom(), initSurplus)))
+	k.liquidatorKeeper.setSeizedDebt(ctx, i(0))
+
+	// Execute
+	auctionID, err := k.liquidatorKeeper.StartSurplusAuction(ctx)
+
+	// Check
+	require.NoError(t, err)
+	require.Equal(t,
+		initSurplus.Sub(SurplusAuctionSize),
+		k.liquidatorKeeper.bankKeeper.GetCoins(ctx,
+			k.cdpKeeper.GetLiquidatorAccountAddress(),
+		).AmountOf(k.cdpKeeper.GetStableDenom()),
+	)
+	_, found := k.auctionKeeper.GetAuction(ctx, auctionID)
+	require.True(t, found)
+}
+
 func TestKeeper_GetSetSeizedDebt(t *testing.T) {
-	// Setup keeper and context
-	mapp, keeper := setUpMockAppWithoutGenesis()
-	mock.SetGenesis(mapp, []auth.Account{})
-	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
-	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
-	ctx := mapp.BaseApp.NewContext(false, header)
-	// create example debt
-	debt := sdk.NewInt(528452456344)
+	// Setup
+	ctx, k := setupTestKeepers()
+	debt := i(528452456344)
 
 	// Run test function
-	keeper.setSeizedDebt(ctx, debt)
-	readDebt := keeper.GetSeizedDebt(ctx)
+	k.liquidatorKeeper.setSeizedDebt(ctx, debt)
+	readDebt := k.liquidatorKeeper.GetSeizedDebt(ctx)
 
-	// check
+	// Check
 	require.Equal(t, debt, readDebt)
 }
