@@ -129,8 +129,7 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 	seizedDebt := k.GetSeizedDebt(ctx).Add(cdp.Debt)
 	k.setSeizedDebt(ctx, seizedDebt)
 
-	// create a SeizedCDP. This is needed because the collateral is auctioned off per CDP. // k.setSeizedCDP(SeizedCDP{cdp.Debt, cdp.Collateral}) // aka create Cat.Flip object
-	//seizedCDP := SeizedCDP{OriginalOwner: cdp.Owner, CollateralDenom: cdp.CollateralDenom, CollateralAmount: cdp.CollateralAmount, Debt: cdp.Debt}
+	// create a SeizedCDP. This is needed because the collateral is auctioned off per CDP. // aka create Cat.Flip object
 	k.setSeizedCDP(ctx, cdp)
 
 	// add cdp.collateral amount of coins to the moduleAccount (so they can be transferred to the auction later)
