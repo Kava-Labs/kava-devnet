@@ -28,7 +28,7 @@ type BaseAuction struct {
 }
 
 type ID uint64
-type endTime int64 // type of BlockHeight TODO does it help to have this as it's own type?
+type endTime int64 // TODO rename to Blockheight or don't define custom type
 // Initially the input and output types from the bank module where used here. But they use sdk.Coins instad of sdk.Coin. So it caused a lot of type conversion as auction mainly uses sdk.Coin.
 type bankInput struct {
 	Address sdk.AccAddress

@@ -28,7 +28,7 @@ func handleMsgSeizeAndStartCollateralAuction(ctx sdk.Context, keeper Keeper, msg
 	if err != nil {
 		return err.Result()
 	}
-	err = keeper.StartCollateralAuction(ctx, msg.CdpOwner, msg.CollateralDenom)
+	_, err = keeper.StartCollateralAuction(ctx, msg.CdpOwner, msg.CollateralDenom)
 	if err != nil {
 		return err.Result()
 	}
@@ -36,7 +36,7 @@ func handleMsgSeizeAndStartCollateralAuction(ctx sdk.Context, keeper Keeper, msg
 }
 
 func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
-	err := keeper.StartDebtAuction(ctx)
+	_, err := keeper.StartDebtAuction(ctx)
 	if err != nil {
 		return err.Result()
 	}
@@ -44,7 +44,7 @@ func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
 }
 
 func handleMsgStartSurplusAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
-	err := keeper.StartSurplusAuction(ctx)
+	_, err := keeper.StartSurplusAuction(ctx)
 	if err != nil {
 		return err.Result()
 	}

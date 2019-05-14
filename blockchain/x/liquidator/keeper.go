@@ -3,6 +3,8 @@ package liquidator
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/kava-labs/usdx/blockchain/x/auction"
 )
 
 type Keeper struct {
@@ -32,11 +34,11 @@ var ( // TODO move into params, pick good defaults
 // StartCollateralAuction pulls collateral out of a (seized) CDP and sells it in an auction for stable coin. Excess collateral goes to the original CDP owner
 // Known as Cat.flip in maker
 // result: stable coin is transferred to moduleAccount, collateral is transferred from module account to buyer, (and any excess collateral is transferred to original CDP owner)
-func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAddress, collateralDenom string) sdk.Error {
+func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAddress, collateralDenom string) (auction.ID, sdk.Error) {
 	// Get Seized CDP
 	seizedCDP, found := k.GetSeizedCDP(ctx, originalOwner, collateralDenom)
 	if !found {
-		return sdk.ErrInternal("CDP not found")
+		return 0, sdk.ErrInternal("CDP not found")
 	}
 	// Calculate how much stable coin to try and raise in this auction
 	stableToRaise := sdk.MinInt(seizedCDP.Debt, CollateralAuctionMaxBid)
@@ -50,9 +52,9 @@ func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAdd
 	// Start "forward reverse" auction type
 	lot := sdk.NewCoin(seizedCDP.CollateralDenom, collateralToSell)
 	maxBid := sdk.NewCoin(k.cdpKeeper.GetStableDenom(), stableToRaise)
-	err := k.auctionKeeper.StartForwardReverseAuction(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), lot, maxBid, seizedCDP.Owner)
+	auctionID, err := k.auctionKeeper.StartForwardReverseAuction(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), lot, maxBid, seizedCDP.Owner)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// Store seizedCDP
 	if seizedCDP.CollateralAmount.IsZero() && seizedCDP.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
@@ -60,60 +62,60 @@ func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAdd
 	} else {
 		k.setSeizedCDP(ctx, seizedCDP)
 	}
-	return nil
+	return auctionID, nil
 }
 
 // StartDebtAuction sells off minted gov coin to raise set amounts of stable coin.
 // Known as Vow.flop in maker
 // result: minted gov coin moved to highest bidder, stable coin moved to moduleAccount
-func (k Keeper) StartDebtAuction(ctx sdk.Context) sdk.Error {
+func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 	// TODO where is the best place for settleDebt to be called? Should it be a message type?
 	k.settleDebt(ctx)
 
 	// check the seized debt is above a threshold
 	seizedDebt := k.GetSeizedDebt(ctx)
 	if seizedDebt.LT(DebtAuctionSize) {
-		return sdk.ErrInternal("not enough seized debt to start an auction")
+		return 0, sdk.ErrInternal("not enough seized debt to start an auction")
 	}
 	// start reverse auction, selling minted gov coin for stable coin
-	err := k.auctionKeeper.StartReverseAuction(
+	auctionID, err := k.auctionKeeper.StartReverseAuction(
 		ctx,
 		k.cdpKeeper.GetLiquidatorAccountAddress(),
 		sdk.NewCoin(k.cdpKeeper.GetStableDenom(), DebtAuctionSize),
 		sdk.NewInt64Coin(k.cdpKeeper.GetGovDenom(), 2^255-1), // TODO is there a way to avoid potentially minting infinite gov coin?
 	)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// reduce debt
 	k.setSeizedDebt(ctx, seizedDebt.Sub(DebtAuctionSize))
-	return nil
+	return auctionID, nil
 }
 
 // StartSurplusAuction sells off excess stable coin in exchange for gov coin, which is burned
 // Known as Vow.flap in maker
 // result: stable coin removed from module account (eventually to buyer), gov coin transferred to module account
-func (k Keeper) StartSurplusAuction(ctx sdk.Context) sdk.Error {
+func (k Keeper) StartSurplusAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 	// TODO where is the best place for settleDebt to be called? Should it be a message type?
 	k.settleDebt(ctx)
 
 	// check there is enough surplus to be sold
 	surplus := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
 	if surplus.LT(SurplusAuctionSize) {
-		return sdk.ErrInternal("not enough surplus stable coin to start an auction")
+		return 0, sdk.ErrInternal("not enough surplus stable coin to start an auction")
 	}
 	// start normal auction, selling stable coin
-	err := k.auctionKeeper.StartForwardAuction(
+	auctionID, err := k.auctionKeeper.StartForwardAuction(
 		ctx,
 		k.cdpKeeper.GetLiquidatorAccountAddress(),
 		sdk.NewCoin(k.cdpKeeper.GetStableDenom(), SurplusAuctionSize),
 		sdk.NewInt64Coin(k.cdpKeeper.GetGovDenom(), 0),
 	)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// Starting the auction will remove coins from the account, so they don't need modified here.
-	return nil
+	return auctionID, nil
 }
 
 func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) sdk.Error { // aka Cat.bite
