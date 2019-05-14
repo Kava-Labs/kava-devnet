@@ -15,12 +15,12 @@ func TestKeeper_SetGetDeleteAuction(t *testing.T) {
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header}) // Without this it panics about "invalid memory address or nil pointer dereference"
 	ctx := mapp.BaseApp.NewContext(false, header)
 	auction, _ := NewForwardAuction(addresses[0], sdk.NewInt64Coin("usdx", 100), sdk.NewInt64Coin("xrs", 0), endTime(1000))
-	id := auctionID(5)
+	id := ID(5)
 	auction.SetID(id)
 
 	// write and read from store
 	keeper.setAuction(ctx, &auction)
-	readAuction, found := keeper.getAuction(ctx, id)
+	readAuction, found := keeper.GetAuction(ctx, id)
 
 	// check before and after match
 	require.True(t, found)
@@ -34,7 +34,7 @@ func TestKeeper_SetGetDeleteAuction(t *testing.T) {
 	keeper.deleteAuction(ctx, id)
 
 	// check auction does not exist
-	_, found = keeper.getAuction(ctx, id)
+	_, found = keeper.GetAuction(ctx, id)
 	require.False(t, found)
 	// check auction not in queue
 	iter = keeper.getQueueIterator(ctx, 100000)
@@ -53,7 +53,7 @@ func TestKeeper_ExpiredAuctionQueue(t *testing.T) {
 	// create an example queue
 	type queue []struct {
 		endTime   endTime
-		auctionID auctionID
+		auctionID ID
 	}
 	q := queue{{1000, 0}, {1300, 2}, {5200, 1}}
 
@@ -66,7 +66,7 @@ func TestKeeper_ExpiredAuctionQueue(t *testing.T) {
 	// check before and after match
 	i := 0
 	for ; iter.Valid(); iter.Next() {
-		var auctionID auctionID
+		var auctionID ID
 		keeper.cdc.MustUnmarshalBinaryLengthPrefixed(iter.Value(), &auctionID)
 		require.Equal(t, q[i].auctionID, auctionID)
 		i++
@@ -74,10 +74,10 @@ func TestKeeper_ExpiredAuctionQueue(t *testing.T) {
 
 }
 
-func convertIteratorToSlice(keeper Keeper, iterator sdk.Iterator) []auctionID {
-	var queue []auctionID
+func convertIteratorToSlice(keeper Keeper, iterator sdk.Iterator) []ID {
+	var queue []ID
 	for ; iterator.Valid(); iterator.Next() {
-		var auctionID auctionID
+		var auctionID ID
 		keeper.cdc.MustUnmarshalBinaryLengthPrefixed(iterator.Value(), &auctionID)
 		queue = append(queue, auctionID)
 	}
