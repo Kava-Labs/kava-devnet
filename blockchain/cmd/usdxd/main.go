@@ -181,7 +181,7 @@ $ usdxd add-genesis-account usdx10zx8zj23ua56t0e7h89xvf2slg5dl0hm77mx0l 1000xrs,
 			}
 
 			for _, stateAcc := range appState.Accounts {
-				if stateAcc.Address.Equals(addr) {
+				if stateAcc.GetAddress().Equals(addr) {
 					return fmt.Errorf("the application state already contains account %v", addr)
 				}
 			}
