@@ -23,6 +23,7 @@ import (
 	cdpclient "github.com/kava-labs/usdx/blockchain/x/cdp/client"
 	auctionclient "github.com/kava-labs/usdx/blockchain/x/auction/client"
 	auctionrest "github.com/kava-labs/usdx/blockchain/x/auction/client/rest"
+	cdpRest "github.com/kava-labs/usdx/blockchain/x/cdp/client/rest"
 	priceclient "github.com/kava-labs/usdx/blockchain/x/pricefeed/client"
 	pricerest "github.com/kava-labs/usdx/blockchain/x/pricefeed/client/rest"
 	"github.com/kava-labs/usdx/blockchain/app"
@@ -88,6 +89,7 @@ func registerRoutes(rs *lcd.RestServer) {
 	bank.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
 	pricerest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, storePricefeed)
 	auctionrest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
+	cdpRest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
 }
 
 func queryCmd(cdc *amino.Codec, mc []sdk.ModuleClients) *cobra.Command {
