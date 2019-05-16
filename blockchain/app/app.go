@@ -241,8 +241,6 @@ func MakeCodec() *codec.Codec {
 	liquidator.RegisterCodec(cdc)
 	sdk.RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
-	cdp.RegisterCodec(cdc)
-	auction.RegisterCodec(cdc)
 	return cdc
 }
 
