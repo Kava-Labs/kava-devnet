@@ -25,6 +25,8 @@ func TestKeeper_SetGetDeleteAuction(t *testing.T) {
 	// check before and after match
 	require.True(t, found)
 	require.Equal(t, &auction, readAuction)
+	t.Log(auction)
+	t.Log(readAuction.GetID())
 	// check auction is in queue
 	iter := keeper.getQueueIterator(ctx, 100000)
 	require.Equal(t, 1, len(convertIteratorToSlice(keeper, iter)))

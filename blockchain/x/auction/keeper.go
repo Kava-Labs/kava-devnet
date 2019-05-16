@@ -270,6 +270,12 @@ func (k Keeper) getQueueIterator(ctx sdk.Context, endTime endTime) sdk.Iterator 
 	)
 }
 
+// GetAuctionIterator returns an iterator over all auctions in the store
+func (k Keeper) GetAuctionIterator(ctx sdk.Context) sdk.Iterator {
+	store := ctx.KVStore(k.storeKey)
+	return sdk.KVStorePrefixIterator(store, nil)
+}
+
 var queueKeyPrefix = []byte("queue")
 var keyDelimiter = []byte(":")
 

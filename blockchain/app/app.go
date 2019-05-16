@@ -132,7 +132,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 	app.QueryRouter().
 		AddRoute(auth.QuerierRoute, auth.NewQuerier(app.accountKeeper)).
 		AddRoute("pricefeed", pricefeed.NewQuerier(app.pricefeedKeeper)).
-		AddRoute("cdp", cdp.NewQuerier(app.cdpKeeper))
+		AddRoute("cdp", cdp.NewQuerier(app.cdpKeeper)).
+		AddRoute("auction", auction.NewQuerier(app.auctionKeeper))
 
 	// The initChainer handles translating the genesis.json file into initial state for the network
 	app.SetInitChainer(app.initChainer)

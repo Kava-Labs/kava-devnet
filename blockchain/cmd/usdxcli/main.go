@@ -21,6 +21,8 @@ import (
 	bankcmd "github.com/cosmos/cosmos-sdk/x/bank/client/cli"
 	bank "github.com/cosmos/cosmos-sdk/x/bank/client/rest"
 	cdpclient "github.com/kava-labs/usdx/blockchain/x/cdp/client"
+	auctionclient "github.com/kava-labs/usdx/blockchain/x/auction/client"
+	auctionrest "github.com/kava-labs/usdx/blockchain/x/auction/client/rest"
 	cdpRest "github.com/kava-labs/usdx/blockchain/x/cdp/client/rest"
 	priceclient "github.com/kava-labs/usdx/blockchain/x/pricefeed/client"
 	pricerest "github.com/kava-labs/usdx/blockchain/x/pricefeed/client/rest"
@@ -44,6 +46,7 @@ func main() {
 	mc := []sdk.ModuleClients{
 		priceclient.NewModuleClient(storePricefeed, cdc),
 		cdpclient.NewModuleClient("cdp", cdc),
+		auctionclient.NewModuleClient("auction", cdc),
 	}
 
 	rootCmd := &cobra.Command{
@@ -85,6 +88,7 @@ func registerRoutes(rs *lcd.RestServer) {
 	auth.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, storeAcc)
 	bank.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, rs.KeyBase)
 	pricerest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, storePricefeed)
+	auctionrest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
 	cdpRest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
 }
 
