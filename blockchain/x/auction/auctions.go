@@ -5,8 +5,8 @@ import (
 )
 
 const (
-	maxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time // 34560
-	bidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name // 2160
+	MaxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time // 34560
+	BidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name // 2160
 )
 
 // Auction is an interface to several types of auction.
@@ -81,7 +81,7 @@ func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 	a.Bidder = bidder
 	a.Bid = bid
 	// increment timeout // TODO into keeper?
-	a.EndTime = endTime(min(int64(currentBlockHeight+bidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
+	a.EndTime = endTime(min(int64(currentBlockHeight+BidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
 
 	return outputs, inputs, nil
 }
@@ -122,7 +122,7 @@ func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 	a.Bidder = bidder
 	a.Lot = lot
 	// increment timeout // TODO into keeper?
-	a.EndTime = endTime(min(int64(currentBlockHeight+bidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
+	a.EndTime = endTime(min(int64(currentBlockHeight+BidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
 
 	return outputs, inputs, nil
 }
@@ -193,7 +193,7 @@ func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.
 	a.Lot = lot
 	a.Bid = bid
 	// increment timeout
-	a.EndTime = endTime(min(int64(currentBlockHeight+bidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
+	a.EndTime = endTime(min(int64(currentBlockHeight+BidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
 
 	return outputs, inputs, nil
 }
