@@ -13,7 +13,7 @@ func EndBlocker(ctx sdk.Context, k Keeper) sdk.Tags {
 
 	// loop through and close them - distribute funds, delete from store (and queue)
 	for ; expiredAuctions.Valid(); expiredAuctions.Next() {
-		var auctionID auctionID
+		var auctionID ID
 		k.cdc.MustUnmarshalBinaryLengthPrefixed(expiredAuctions.Value(), &auctionID)
 
 		err := k.CloseAuction(ctx, auctionID)

@@ -3,24 +3,22 @@ package app
 import (
 	"encoding/json"
 
-	"github.com/tendermint/tendermint/libs/log"
-
+	bam "github.com/cosmos/cosmos-sdk/baseapp"
 	"github.com/cosmos/cosmos-sdk/codec"
+	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
-	"github.com/cosmos/cosmos-sdk/x/staking"
+	abci "github.com/tendermint/tendermint/abci/types"
+	cmn "github.com/tendermint/tendermint/libs/common"
+	dbm "github.com/tendermint/tendermint/libs/db"
+	"github.com/tendermint/tendermint/libs/log"
+	tmtypes "github.com/tendermint/tendermint/types"
+
 	"github.com/kava-labs/usdx/blockchain/x/auction"
 	"github.com/kava-labs/usdx/blockchain/x/cdp"
 	"github.com/kava-labs/usdx/blockchain/x/liquidator"
 	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
-
-	bam "github.com/cosmos/cosmos-sdk/baseapp"
-	sdk "github.com/cosmos/cosmos-sdk/types"
-	abci "github.com/tendermint/tendermint/abci/types"
-	cmn "github.com/tendermint/tendermint/libs/common"
-	dbm "github.com/tendermint/tendermint/libs/db"
-	tmtypes "github.com/tendermint/tendermint/types"
 )
 
 const (
@@ -138,6 +136,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 
 	// The initChainer handles translating the genesis.json file into initial state for the network
 	app.SetInitChainer(app.initChainer)
+	// Set the function to be run at the end of every block
+	app.SetEndBlocker(app.endBlocker)
 
 	app.MountStores(
 		app.keyMain,
@@ -165,7 +165,7 @@ type GenesisState struct {
 	BankData      bank.GenesisState      `json:"bank"`
 	PricefeedData pricefeed.GenesisState `json:"pricfeed"`
 	CdpData       cdp.GenesisState       `json:"cdp"`
-	Accounts      []*auth.BaseAccount    `json:"accounts"`
+	Accounts      []auth.Account         `json:"accounts"` // TODO should this be type []*auth.baseAccount?
 }
 
 func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
@@ -178,18 +178,27 @@ func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci
 	}
 
 	for _, acc := range genesisState.Accounts {
-		acc.AccountNumber = app.accountKeeper.GetNextAccountNumber(ctx)
+		acc = app.accountKeeper.NewAccount(ctx, acc) // set account number
 		app.accountKeeper.SetAccount(ctx, acc)
 	}
 
 	auth.InitGenesis(ctx, app.accountKeeper, app.feeCollectionKeeper, genesisState.AuthData)
 	bank.InitGenesis(ctx, app.bankKeeper, genesisState.BankData)
 	pricefeed.InitGenesis(ctx, app.pricefeedKeeper, genesisState.PricefeedData)
-	cdp.InitGenesis(ctx, app.cdpKeeper, cdp.DefaultGenesisState())
+	cdp.InitGenesis(ctx, app.cdpKeeper, genesisState.CdpData)
 	return abci.ResponseInitChain{}
 }
 
+func (app *UsdxApp) endBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
+	auctionTags := auction.EndBlocker(ctx, app.auctionKeeper)
+	pricefeedTags := pricefeed.EndBlocker(ctx, app.pricefeedKeeper)
+	return abci.ResponseEndBlock{
+		Tags: append(auctionTags, pricefeedTags...),
+	}
+}
+
 // ExportAppStateAndValidators does the things
+// TODO fix this
 func (app *UsdxApp) ExportAppStateAndValidators() (appState json.RawMessage, validators []tmtypes.GenesisValidator, err error) {
 	ctx := app.NewContext(true, abci.Header{})
 	accounts := []*auth.BaseAccount{}
@@ -207,7 +216,7 @@ func (app *UsdxApp) ExportAppStateAndValidators() (appState json.RawMessage, val
 	app.accountKeeper.IterateAccounts(ctx, appendAccountsFn)
 
 	genState := GenesisState{
-		Accounts: accounts,
+		Accounts: []auth.Account{}, // TODO fix this, used to be just `accounts`
 		AuthData: auth.DefaultGenesisState(),
 		BankData: bank.DefaultGenesisState(),
 	}
@@ -226,7 +235,9 @@ func MakeCodec() *codec.Codec {
 	auth.RegisterCodec(cdc)
 	bank.RegisterCodec(cdc)
 	pricefeed.RegisterCodec(cdc)
-	staking.RegisterCodec(cdc) // TODO is this meant to be here? There's no staking module in this app.
+	auction.RegisterCodec(cdc)
+	cdp.RegisterCodec(cdc)
+	liquidator.RegisterCodec(cdc)
 	sdk.RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
 	return cdc

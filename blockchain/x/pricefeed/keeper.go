@@ -195,6 +195,7 @@ func (k Keeper) GetAsset(ctx sdk.Context, assetCode string) (Asset, bool) {
 func (k Keeper) GetCurrentPrice(ctx sdk.Context, assetCode string) CurrentPrice {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get([]byte(CurrentPricePrefix + assetCode))
+	// TODO panic or return error if not found
 	var price CurrentPrice
 	k.cdc.MustUnmarshalBinaryBare(bz, &price)
 	return price

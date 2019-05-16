@@ -169,21 +169,29 @@ func (k Keeper) SeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom 
 	}
 	cState.TotalDebt = cState.TotalDebt.Sub(cdp.Debt)
 
-	// Update global debt
-	gDebt := k.GetGlobalDebt(ctx)
-	gDebt = gDebt.Sub(cdp.Debt)
+	// Note: Global debt is not decremented here. It's only decremented when debt and stable coin are annihilated (aka heal)
 
-	// TODO update global seized debt? this is what maker does (Vat.grab) but it's not used anywhere
+	// TODO update global seized debt? this is what maker does (named vice in Vat.grab) but it's not used anywhere
 
-	// Empty CDP of collateral and debt // TODO this should just delete the CDP
-	cdp.Debt = sdk.ZeroInt()
-	cdp.CollateralAmount = sdk.ZeroInt()
-
-	// Store updated state
-	k.setCDP(ctx, cdp)
+	// Empty CDP of collateral and debt and store updated state
+	// zeroing out collateralAmount and Debt in a CDP is equivalent to deleting it in the current no-ID model
+	k.deleteCDP(ctx, cdp)
 	k.setCollateralState(ctx, cState)
-	k.setGlobalDebt(ctx, gDebt)
 	return cdp, nil
+}
+
+// ReduceGlobalDebt decreases the stored global debt counter. It is used by the liquidator when it annihilates debt and stable coin.
+// TODO Can the interface between cdp and liquidator modules be improved so that this function doesn't exist?
+func (k Keeper) ReduceGlobalDebt(ctx sdk.Context, amount sdk.Int) sdk.Error {
+	if amount.IsNegative() {
+		return sdk.ErrInternal("reduction in global debt must be a positive amount")
+	}
+	newGDebt := k.GetGlobalDebt(ctx).Sub(amount)
+	if newGDebt.IsNegative() {
+		return sdk.ErrInternal("cannot reduce global debt by amount specified")
+	}
+	k.setGlobalDebt(ctx, newGDebt)
+	return nil
 }
 
 // TODO

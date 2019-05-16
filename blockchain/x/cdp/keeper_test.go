@@ -151,25 +151,20 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	}
 }
 
-func TestKeeper_ConfiscateCDP(t *testing.T) {
+func TestKeeper_SeizeCDP(t *testing.T) {
 	// Setup
 	const collateral = "xrp"
-	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
-	testAddr := addrs[0]
 	mapp, keeper := setUpMockAppWithoutGenesis()
-
-	genAcc := auth.BaseAccount{
-		Address: testAddr,
-		Coins:   cs(c(collateral, 100)),
-	}
-	mock.SetGenesis(mapp, []auth.Account{&genAcc})
+	genAccs, addrs, _, _ := mock.CreateGenAccounts(1, cs(c(collateral, 100)))
+	testAddr := addrs[0]
+	mock.SetGenesis(mapp, genAccs)
 	// setup pricefeed
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
-	keeper.pricefeed.AddAsset(ctx, "xrp", "xrp test")
+	keeper.pricefeed.AddAsset(ctx, collateral, "xrp test")
 	keeper.pricefeed.SetPrice(
-		ctx, sdk.AccAddress{}, "xrp",
+		ctx, sdk.AccAddress{}, collateral,
 		sdk.MustNewDecFromStr("1.00"),
 		sdk.NewInt(10))
 	keeper.pricefeed.SetCurrentPrices(ctx)
@@ -178,25 +173,21 @@ func TestKeeper_ConfiscateCDP(t *testing.T) {
 	require.Nil(t, err)
 	// Reduce price
 	keeper.pricefeed.SetPrice(
-		ctx, sdk.AccAddress{}, "xrp",
+		ctx, sdk.AccAddress{}, collateral,
 		sdk.MustNewDecFromStr("0.90"),
 		sdk.NewInt(10))
 	keeper.pricefeed.SetCurrentPrices(ctx)
 
-	// Confiscate CDP
+	// Seize CDP
 	_, err = keeper.SeizeCDP(ctx, testAddr, collateral)
 
 	// Check
 	require.Nil(t, err)
-	cdp, found := keeper.GetCDP(ctx, testAddr, collateral)
-	require.True(t, found)
-	require.Equal(t, sdk.ZeroInt(), cdp.CollateralAmount)
-	require.Equal(t, sdk.ZeroInt(), cdp.Debt)
+	_, found := keeper.GetCDP(ctx, testAddr, collateral)
+	require.False(t, found)
 	cState, found := keeper.GetCollateralState(ctx, collateral)
 	require.True(t, found)
 	require.Equal(t, sdk.ZeroInt(), cState.TotalDebt)
-	gDebt := keeper.GetGlobalDebt(ctx)
-	require.Equal(t, sdk.ZeroInt(), gDebt)
 }
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP

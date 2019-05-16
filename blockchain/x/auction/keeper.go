@@ -27,47 +27,47 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bankKeeper, storeKey sdk.StoreKey) K
 // TODO these 3 start functions be combined or abstracted away?
 
 // StartForwardAuction starts a normal auction. Known as flap in maker.
-func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin) sdk.Error {
+func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin) (ID, sdk.Error) {
 	// create auction
-	auction, initiatorOutput := NewForwardAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	auction, initiatorOutput := NewForwardAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+MaxAuctionDuration)
 	// start the auction
-	err := k.startAuction(ctx, &auction, initiatorOutput)
+	auctionID, err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return auctionID, nil
 }
 
 // StartReverseAuction starts an auction where sellers compete by offering decreasing prices. Known as flop in maker.
-func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin) sdk.Error {
+func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin) (ID, sdk.Error) {
 	// create auction
-	auction, initiatorOutput := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	auction, initiatorOutput := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+MaxAuctionDuration)
 	// start the auction
-	err := k.startAuction(ctx, &auction, initiatorOutput)
+	auctionID, err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return auctionID, nil
 }
 
 // StartForwardReverseAuction starts an auction where bidders bid up to a maxBid, then switch to bidding down on price. Known as flip in maker.
-func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, maxBid sdk.Coin, otherPerson sdk.AccAddress) sdk.Error {
+func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, maxBid sdk.Coin, otherPerson sdk.AccAddress) (ID, sdk.Error) {
 	// create auction
 	initialBid := sdk.NewInt64Coin(maxBid.Denom, 0) // set the bidding coin denomination from the specified max bid
-	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
+	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+MaxAuctionDuration, maxBid, otherPerson)
 	// start the auction
-	err := k.startAuction(ctx, &auction, initiatorOutput)
+	auctionID, err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
-		return err
+		return 0, err
 	}
-	return nil
+	return auctionID, nil
 }
 
-func (k Keeper) startAuction(ctx sdk.Context, auction Auction, initiatorOutput bankOutput) sdk.Error {
+func (k Keeper) startAuction(ctx sdk.Context, auction Auction, initiatorOutput bankOutput) (ID, sdk.Error) {
 	// get ID
 	newAuctionID, err := k.getNextAuctionID(ctx)
 	if err != nil {
-		return err
+		return 0, err
 	}
 	// set ID
 	auction.SetID(newAuctionID)
@@ -75,20 +75,20 @@ func (k Keeper) startAuction(ctx sdk.Context, auction Auction, initiatorOutput b
 	// subtract coins from initiator
 	_, _, err = k.bankKeeper.SubtractCoins(ctx, initiatorOutput.Address, sdk.NewCoins(initiatorOutput.Coin))
 	if err != nil {
-		return err
+		return 0, err
 	}
 
 	// store auction
 	k.setAuction(ctx, auction)
 	k.incrementNextAuctionID(ctx)
-	return nil
+	return newAuctionID, nil
 }
 
 // PlaceBid places a bid on any auction.
-func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAddress, bid sdk.Coin, lot sdk.Coin) sdk.Error {
+func (k Keeper) PlaceBid(ctx sdk.Context, auctionID ID, bidder sdk.AccAddress, bid sdk.Coin, lot sdk.Coin) sdk.Error {
 
 	// get auction from store
-	auction, found := k.getAuction(ctx, auctionID)
+	auction, found := k.GetAuction(ctx, auctionID)
 	if !found {
 		return sdk.ErrInternal("auction doesn't exist")
 	}
@@ -122,10 +122,10 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID auctionID, bidder sdk.AccAdd
 
 // CloseAuction closes an auction and distributes funds to the seller and highest bidder.
 // TODO because this is called by the end blocker, it has to be valid for the duration of the EndTime block. Should maybe move this to a begin blocker?
-func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
+func (k Keeper) CloseAuction(ctx sdk.Context, auctionID ID) sdk.Error {
 
 	// get the auction from the store
-	auction, found := k.getAuction(ctx, auctionID)
+	auction, found := k.GetAuction(ctx, auctionID)
 	if !found {
 		return sdk.ErrInternal("auction doesn't exist")
 	}
@@ -150,18 +150,18 @@ func (k Keeper) CloseAuction(ctx sdk.Context, auctionID auctionID) sdk.Error {
 // Use these to add and remove auction from the store.
 
 // getNextAuctionID gets the next available global AuctionID
-func (k Keeper) getNextAuctionID(ctx sdk.Context) (auctionID, sdk.Error) { // TODO don't need error return here
+func (k Keeper) getNextAuctionID(ctx sdk.Context) (ID, sdk.Error) { // TODO don't need error return here
 	// get next ID from store
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(k.getNextAuctionIDKey())
 	if bz == nil {
 		// if not found, set the id at 0
-		bz = k.cdc.MustMarshalBinaryLengthPrefixed(auctionID(0))
+		bz = k.cdc.MustMarshalBinaryLengthPrefixed(ID(0))
 		store.Set(k.getNextAuctionIDKey(), bz)
 		// TODO Why does the gov module set the id in genesis? :
 		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set")
 	}
-	var auctionID auctionID
+	var auctionID ID
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &auctionID)
 	return auctionID, nil
 }
@@ -175,7 +175,7 @@ func (k Keeper) incrementNextAuctionID(ctx sdk.Context) sdk.Error {
 		panic("initial auctionID never set in genesis")
 		//return 0, ErrInvalidGenesis(keeper.codespace, "InitialProposalID never set") // TODO is this needed? Why not just set it zero here?
 	}
-	var auctionID auctionID
+	var auctionID ID
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &auctionID)
 
 	// increment the stored next ID
@@ -189,7 +189,7 @@ func (k Keeper) incrementNextAuctionID(ctx sdk.Context) sdk.Error {
 // it overwrites any pre-existing auction with same ID
 func (k Keeper) setAuction(ctx sdk.Context, auction Auction) {
 	// remove the auction from the queue if it is already in there
-	existingAuction, found := k.getAuction(ctx, auction.GetID())
+	existingAuction, found := k.GetAuction(ctx, auction.GetID())
 	if found {
 		k.removeFromQueue(ctx, existingAuction.GetEndTime(), existingAuction.GetID())
 	}
@@ -204,7 +204,7 @@ func (k Keeper) setAuction(ctx sdk.Context, auction Auction) {
 }
 
 // getAuction gets an auction from the store by auctionID
-func (k Keeper) getAuction(ctx sdk.Context, auctionID auctionID) (Auction, bool) {
+func (k Keeper) GetAuction(ctx sdk.Context, auctionID ID) (Auction, bool) {
 	var auction Auction
 
 	store := ctx.KVStore(k.storeKey)
@@ -218,9 +218,9 @@ func (k Keeper) getAuction(ctx sdk.Context, auctionID auctionID) (Auction, bool)
 }
 
 // deleteAuction removes an auction from the store without any validation
-func (k Keeper) deleteAuction(ctx sdk.Context, auctionID auctionID) {
+func (k Keeper) deleteAuction(ctx sdk.Context, auctionID ID) {
 	// remove from queue
-	auction, found := k.getAuction(ctx, auctionID)
+	auction, found := k.GetAuction(ctx, auctionID)
 	if found {
 		k.removeFromQueue(ctx, auction.GetEndTime(), auctionID)
 	}
@@ -236,12 +236,12 @@ func (k Keeper) deleteAuction(ctx sdk.Context, auctionID auctionID) {
 func (k Keeper) getNextAuctionIDKey() []byte {
 	return []byte("nextAuctionID")
 }
-func (k Keeper) getAuctionKey(auctionID auctionID) []byte {
+func (k Keeper) getAuctionKey(auctionID ID) []byte {
 	return []byte(fmt.Sprintf("auctions:%d", auctionID))
 }
 
 // Inserts a AuctionID into the queue at endTime
-func (k Keeper) insertIntoQueue(ctx sdk.Context, endTime endTime, auctionID auctionID) {
+func (k Keeper) insertIntoQueue(ctx sdk.Context, endTime endTime, auctionID ID) {
 	// get the store
 	store := ctx.KVStore(k.storeKey)
 	// marshal thing to be inserted
@@ -254,7 +254,7 @@ func (k Keeper) insertIntoQueue(ctx sdk.Context, endTime endTime, auctionID auct
 }
 
 // removes an auctionID from the queue
-func (k Keeper) removeFromQueue(ctx sdk.Context, endTime endTime, auctionID auctionID) {
+func (k Keeper) removeFromQueue(ctx sdk.Context, endTime endTime, auctionID ID) {
 	store := ctx.KVStore(k.storeKey)
 	store.Delete(getQueueElementKey(endTime, auctionID))
 }
@@ -282,7 +282,7 @@ func getQueueElementKeyPrefix(endTime endTime) []byte {
 }
 
 // Returns the key for an auctionID in the queue
-func getQueueElementKey(endTime endTime, auctionID auctionID) []byte {
+func getQueueElementKey(endTime endTime, auctionID ID) []byte {
 	return bytes.Join([][]byte{
 		queueKeyPrefix,
 		sdk.Uint64ToBigEndian(uint64(endTime)), // TODO check this gives correct ordering
