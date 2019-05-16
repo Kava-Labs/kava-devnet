@@ -43,7 +43,7 @@ func TestApp_ForwardAuction(t *testing.T) {
 
 	// Deliver empty blocks until the auction should be closed (bid placed on block 3)
 	// TODO is there a way of skipping ahead? This takes a while and prints a lot.
-	for h := mapp.LastBlockHeight() + 1; h < int64(bidDuration)+4; h++ {
+	for h := mapp.LastBlockHeight() + 1; h < int64(BidDuration)+4; h++ {
 		mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
 		mapp.EndBlock(abci.RequestEndBlock{Height: h})
 		mapp.Commit()
@@ -82,7 +82,7 @@ func TestApp_ReverseAuction(t *testing.T) {
 	mock.CheckBalance(t, mapp, buyer, sdk.NewCoins(sdk.NewInt64Coin("token1", 120), sdk.NewInt64Coin("token2", 90)))
 
 	// Deliver empty blocks until the auction should be closed (bid placed on block 3)
-	for h := mapp.LastBlockHeight() + 1; h < int64(bidDuration)+4; h++ {
+	for h := mapp.LastBlockHeight() + 1; h < int64(BidDuration)+4; h++ {
 		mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
 		mapp.EndBlock(abci.RequestEndBlock{Height: h})
 		mapp.Commit()
@@ -124,7 +124,7 @@ func TestApp_ForwardReverseAuction(t *testing.T) {
 	mock.CheckBalance(t, mapp, recipient, sdk.NewCoins(sdk.NewInt64Coin("token1", 105), sdk.NewInt64Coin("token2", 100)))
 
 	// Deliver empty blocks until the auction should be closed (bid placed on block 3)
-	for h := mapp.LastBlockHeight() + 1; h < int64(bidDuration)+4; h++ {
+	for h := mapp.LastBlockHeight() + 1; h < int64(BidDuration)+4; h++ {
 		mapp.BeginBlock(abci.RequestBeginBlock{Header: abci.Header{Height: h}})
 		mapp.EndBlock(abci.RequestEndBlock{Height: h})
 		mapp.Commit()

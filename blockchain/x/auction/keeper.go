@@ -29,7 +29,7 @@ func NewKeeper(cdc *codec.Codec, bankKeeper bankKeeper, storeKey sdk.StoreKey) K
 // StartForwardAuction starts a normal auction. Known as flap in maker.
 func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, initialBid sdk.Coin) (ID, sdk.Error) {
 	// create auction
-	auction, initiatorOutput := NewForwardAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	auction, initiatorOutput := NewForwardAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+MaxAuctionDuration)
 	// start the auction
 	auctionID, err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
@@ -41,7 +41,7 @@ func (k Keeper) StartForwardAuction(ctx sdk.Context, seller sdk.AccAddress, lot 
 // StartReverseAuction starts an auction where sellers compete by offering decreasing prices. Known as flop in maker.
 func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid sdk.Coin, initialLot sdk.Coin) (ID, sdk.Error) {
 	// create auction
-	auction, initiatorOutput := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+maxAuctionDuration)
+	auction, initiatorOutput := NewReverseAuction(buyer, bid, initialLot, endTime(ctx.BlockHeight())+MaxAuctionDuration)
 	// start the auction
 	auctionID, err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
@@ -54,7 +54,7 @@ func (k Keeper) StartReverseAuction(ctx sdk.Context, buyer sdk.AccAddress, bid s
 func (k Keeper) StartForwardReverseAuction(ctx sdk.Context, seller sdk.AccAddress, lot sdk.Coin, maxBid sdk.Coin, otherPerson sdk.AccAddress) (ID, sdk.Error) {
 	// create auction
 	initialBid := sdk.NewInt64Coin(maxBid.Denom, 0) // set the bidding coin denomination from the specified max bid
-	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+maxAuctionDuration, maxBid, otherPerson)
+	auction, initiatorOutput := NewForwardReverseAuction(seller, lot, initialBid, endTime(ctx.BlockHeight())+MaxAuctionDuration, maxBid, otherPerson)
 	// start the auction
 	auctionID, err := k.startAuction(ctx, &auction, initiatorOutput)
 	if err != nil {
