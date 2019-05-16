@@ -4,23 +4,17 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	abci "github.com/tendermint/tendermint/abci/types"
 )
 
 func TestApp_CreateModifyDeleteCDP(t *testing.T) {
 	// Setup
-	privKeys, addrs := mock.GeneratePrivKeyAddressPairs(1)
+	mapp, keeper := setUpMockAppWithoutGenesis()
+	genAccs, addrs, _, privKeys := mock.CreateGenAccounts(1, cs(c("xrp", 100)))
 	testAddr := addrs[0]
 	testPrivKey := privKeys[0]
-	mapp, keeper := setUpMockAppWithoutGenesis()
-
-	genAcc := auth.BaseAccount{
-		Address: testAddr,
-		Coins:   cs(c("xrp", 100)),
-	}
-	mock.SetGenesis(mapp, []auth.Account{&genAcc})
+	mock.SetGenesis(mapp, genAccs)
 	// setup pricefeed, TODO can this be shortened a bit?
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})

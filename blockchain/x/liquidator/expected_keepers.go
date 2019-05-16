@@ -2,12 +2,15 @@ package liquidator
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
+	"github.com/kava-labs/usdx/blockchain/x/auction"
 	"github.com/kava-labs/usdx/blockchain/x/cdp"
 )
 
 type cdpKeeper interface {
-	SeizeCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, sdk.Error) // TODO is the dependence on a cdp type here not so good?
-	GetStableDenom() string                                            // TODO can this be removed somehow?
+	SeizeCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, sdk.Error)
+	ReduceGlobalDebt(sdk.Context, sdk.Int) sdk.Error
+	GetStableDenom() string // TODO can this be removed somehow?
 	GetGovDenom() string
 	GetLiquidatorAccountAddress() sdk.AccAddress // This won't need to exist once the module account is defined in this module (instead of in the cdp module)
 }
@@ -19,7 +22,7 @@ type bankKeeper interface {
 }
 
 type auctionKeeper interface {
-	StartForwardAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin) sdk.Error
-	StartReverseAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin) sdk.Error
-	StartForwardReverseAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin, sdk.AccAddress) sdk.Error
+	StartForwardAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin) (auction.ID, sdk.Error)
+	StartReverseAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin) (auction.ID, sdk.Error)
+	StartForwardReverseAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin, sdk.AccAddress) (auction.ID, sdk.Error)
 }

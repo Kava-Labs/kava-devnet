@@ -5,20 +5,20 @@ import (
 )
 
 const (
-	maxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time // 34560
-	bidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name // 2160
+	MaxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time // 34560
+	BidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name // 2160
 )
 
 // Auction is an interface to several types of auction.
 type Auction interface {
-	GetID() auctionID
-	SetID(auctionID)
+	GetID() ID
+	SetID(ID)
 	PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddress, lot sdk.Coin, bid sdk.Coin) ([]bankOutput, []bankInput, sdk.Error)
 	GetEndTime() endTime // auctions close at the end of the block with blockheight EndTime (ie bids placed in that block are valid)
 	GetPayout() bankInput
 }
 type BaseAuction struct {
-	ID         auctionID
+	ID         ID
 	Initiator  sdk.AccAddress // Person who starts the auction. Giving away Lot (aka seller in a forward auction)
 	Lot        sdk.Coin       // Amount of coins up being given by initiator (FA - amount for sale by seller, RA - cost of good by buyer (bid))
 	Bidder     sdk.AccAddress // Person who bids in the auction. Receiver of Lot. (aka buyer in forward auction, seller in RA)
@@ -27,8 +27,8 @@ type BaseAuction struct {
 	MaxEndTime endTime        // Maximum closing time. Auctions can close before this but never after.
 }
 
-type auctionID uint64 // copied from how the gov module IDs its proposals
-type endTime int64    // type of BlockHeight TODO does it help to have this as it's own type?
+type ID uint64
+type endTime int64 // TODO rename to Blockheight or don't define custom type
 // Initially the input and output types from the bank module where used here. But they use sdk.Coins instad of sdk.Coin. So it caused a lot of type conversion as auction mainly uses sdk.Coin.
 type bankInput struct {
 	Address sdk.AccAddress
@@ -39,8 +39,8 @@ type bankOutput struct {
 	Coin    sdk.Coin
 }
 
-func (a BaseAuction) GetID() auctionID    { return a.ID }
-func (a *BaseAuction) SetID(id auctionID) { a.ID = id }
+func (a BaseAuction) GetID() ID           { return a.ID }
+func (a *BaseAuction) SetID(id ID)        { a.ID = id }
 func (a BaseAuction) GetEndTime() endTime { return a.EndTime }
 func (a BaseAuction) GetPayout() bankInput {
 	return bankInput{a.Bidder, a.Lot}
@@ -81,7 +81,7 @@ func (a *ForwardAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 	a.Bidder = bidder
 	a.Bid = bid
 	// increment timeout // TODO into keeper?
-	a.EndTime = endTime(min(int64(currentBlockHeight+bidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
+	a.EndTime = endTime(min(int64(currentBlockHeight+BidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
 
 	return outputs, inputs, nil
 }
@@ -122,7 +122,7 @@ func (a *ReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.AccAddr
 	a.Bidder = bidder
 	a.Lot = lot
 	// increment timeout // TODO into keeper?
-	a.EndTime = endTime(min(int64(currentBlockHeight+bidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
+	a.EndTime = endTime(min(int64(currentBlockHeight+BidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
 
 	return outputs, inputs, nil
 }
@@ -193,7 +193,7 @@ func (a *ForwardReverseAuction) PlaceBid(currentBlockHeight endTime, bidder sdk.
 	a.Lot = lot
 	a.Bid = bid
 	// increment timeout
-	a.EndTime = endTime(min(int64(currentBlockHeight+bidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
+	a.EndTime = endTime(min(int64(currentBlockHeight+BidDuration), int64(a.MaxEndTime))) // TODO is there a better way to structure these types?
 
 	return outputs, inputs, nil
 }

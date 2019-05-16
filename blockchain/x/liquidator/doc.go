@@ -12,8 +12,7 @@ Notes
 	- liquidator needs get access to stable and gov denoms from the cdp module
 
 TODO
- - Call settleDebt somewhere, currently it just racks up.
- - Fix bug in settleDebt where CDP module globalDebt is not reduced
+ - Add some kind of more complete test
  - Add an endblocker that seizes all undercollateralized CDPs (requires queue structure in CDP module)
  - Add params (need access to the collateral types for fees. Can this module access the cdp module params?)
  - rename SeizedDebt to TotalSeizedDebt ?
