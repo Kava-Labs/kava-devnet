@@ -121,7 +121,6 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 	app.SetAnteHandler(auth.NewAnteHandler(app.accountKeeper, app.feeCollectionKeeper))
 
 	// The app.Router is the main transaction router where each module registers its routes
-	// Register the bank and nameservice routes here
 	app.Router().
 		AddRoute("bank", bank.NewHandler(app.bankKeeper)).
 		AddRoute("pricefeed", pricefeed.NewHandler(app.pricefeedKeeper)).
@@ -132,7 +131,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 	// The app.QueryRouter is the main query router where each module registers its routes
 	app.QueryRouter().
 		AddRoute(auth.QuerierRoute, auth.NewQuerier(app.accountKeeper)).
-		AddRoute("pricefeed", pricefeed.NewQuerier(app.pricefeedKeeper))
+		AddRoute("pricefeed", pricefeed.NewQuerier(app.pricefeedKeeper)).
+		AddRoute("cdp", cdp.NewQuerier(app.cdpKeeper))
 
 	// The initChainer handles translating the genesis.json file into initial state for the network
 	app.SetInitChainer(app.initChainer)
@@ -150,7 +150,6 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		app.keyCdp,
 		app.keyLiquidator,
 	)
-
 	err := app.LoadLatestVersion(app.keyMain)
 	if err != nil {
 		cmn.Exit(err.Error())
