@@ -150,7 +150,6 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		app.keyCdp,
 		app.keyLiquidator,
 	)
-	app.SetEndBlocker(app.EndBlocker)
 	err := app.LoadLatestVersion(app.keyMain)
 	if err != nil {
 		cmn.Exit(err.Error())
@@ -240,7 +239,6 @@ func MakeCodec() *codec.Codec {
 	liquidator.RegisterCodec(cdc)
 	sdk.RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
-	cdp.RegisterCodec(cdc)
 	return cdc
 }
 
@@ -251,13 +249,4 @@ func SetAddressPrefixes() {
 	config.SetBech32PrefixForValidator("usdx"+"val"+"oper", "usdx"+"val"+"oper"+"pub")
 	config.SetBech32PrefixForConsensusNode("usdx"+"val"+"cons", "usdx"+"val"+"cons"+"pub")
 	config.Seal()
-}
-
-// EndBlocker application updates every end block
-func (app *UsdxApp) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
-	tags := pricefeed.EndBlocker(ctx, app.pricefeedKeeper)
-	return abci.ResponseEndBlock{
-		ValidatorUpdates: []abci.ValidatorUpdate{},
-		Tags:             tags,
-	}
 }
