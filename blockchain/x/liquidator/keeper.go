@@ -201,7 +201,8 @@ func (k Keeper) GetSeizedDebt(ctx sdk.Context) sdk.Int {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(k.getSeizedDebtKey())
 	if bz == nil {
-		panic("seized debt not set")
+		// TODO make initial seized debt and CDPs configurable at genesis, then panic here if not found
+		bz = k.cdc.MustMarshalBinaryLengthPrefixed(sdk.NewInt(0))
 	}
 	var seizedDebt sdk.Int
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &seizedDebt)

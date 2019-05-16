@@ -22,6 +22,10 @@ func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
 	mapp := mock.NewApp()
 
 	// Register codecs
+	bank.RegisterCodec(mapp.Cdc)
+	pricefeed.RegisterCodec(mapp.Cdc)
+	auction.RegisterCodec(mapp.Cdc)
+	cdp.RegisterCodec(mapp.Cdc)
 	RegisterCodec(mapp.Cdc)
 
 	// Create keepers
@@ -37,13 +41,35 @@ func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
 	liquidatorKeeper := NewKeeper(mapp.Cdc, keyLiquidator, cdpKeeper, auctionKeeper, cdpKeeper) // Note: cdp keeper stands in for bank keeper
 
 	// Register routes
-	mapp.Router().AddRoute("liquidator", NewHandler(liquidatorKeeper))
+	mapp.Router().
+		AddRoute("bank", bank.NewHandler(bankKeeper)).
+		AddRoute("pricefeed", pricefeed.NewHandler(priceFeedKeeper)).
+		AddRoute("cdp", cdp.NewHandler(cdpKeeper)).
+		AddRoute("liquidator", NewHandler(liquidatorKeeper)).
+		AddRoute("auction", auction.NewHandler(auctionKeeper))
 
 	mapp.SetInitChainer(
 		func(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 			res := mapp.InitChainer(ctx, req)
+			bank.InitGenesis(ctx, bankKeeper, bank.DefaultGenesisState())
+			pfGenState := pricefeed.GenesisState{
+				Assets: []pricefeed.Asset{
+					{AssetCode: "btc", Description: ""},
+					{AssetCode: "xrp", Description: ""},
+				},
+			}
+			pricefeed.InitGenesis(ctx, priceFeedKeeper, pfGenState)
 			cdp.InitGenesis(ctx, cdpKeeper, cdp.DefaultGenesisState())
 			return res
+		},
+	)
+	mapp.SetEndBlocker(
+		func(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
+			auctionTags := auction.EndBlocker(ctx, auctionKeeper)
+			pricefeedTags := pricefeed.EndBlocker(ctx, priceFeedKeeper)
+			return abci.ResponseEndBlock{
+				Tags: append(auctionTags, pricefeedTags...),
+			}
 		},
 	)
 

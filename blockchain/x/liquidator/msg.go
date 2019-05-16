@@ -2,18 +2,24 @@ package liquidator
 
 import sdk "github.com/cosmos/cosmos-sdk/types"
 
-// Message types for starting various auctions. TODO Should they place an initial bid as well?
+/*
+Message types for starting various auctions.
+Note: these message types are not final and will likely change.
+Design options and problems:
+ - msgs that only start auctions
+	- senders have to pay fees
+	- these msgs cannot be bundled into a tx with a PlaceBid msg because PlaceBid requires an auction ID
+ - msgs that start auctions and place an initial bid
+	- couples two processes that may need to be handled separately
+ - no msgs, auctions started automatically
+	- not clear how this should be done
+	- running this as an endblocker adds complexity and potential vulnerabilities
+*/
 
 type MsgSeizeAndStartCollateralAuction struct {
+	Sender          sdk.AccAddress // only needed to pay the tx fees
 	CdpOwner        sdk.AccAddress
 	CollateralDenom string
-}
-
-func NewMsgSeizeAndStartCollateralAuction(cdpOwner sdk.AccAddress, collateralDenom string) MsgSeizeAndStartCollateralAuction {
-	return MsgSeizeAndStartCollateralAuction{
-		CdpOwner:        cdpOwner,
-		CollateralDenom: collateralDenom,
-	}
 }
 
 // Route return the message type used for routing the message.
@@ -24,6 +30,9 @@ func (msg MsgSeizeAndStartCollateralAuction) Type() string { return "seize_and_s
 
 // ValidateBasic does a simple validation check that doesn't require access to any other information.
 func (msg MsgSeizeAndStartCollateralAuction) ValidateBasic() sdk.Error {
+	if msg.Sender.Empty() {
+		return sdk.ErrInternal("invalid (empty) sender address")
+	}
 	if msg.CdpOwner.Empty() {
 		return sdk.ErrInternal("invalid (empty) CDP owner address")
 	}
@@ -39,27 +48,39 @@ func (msg MsgSeizeAndStartCollateralAuction) GetSignBytes() []byte {
 
 // GetSigners returns the addresses of signers that must sign.
 func (msg MsgSeizeAndStartCollateralAuction) GetSigners() []sdk.AccAddress {
-	return []sdk.AccAddress{} // TODO does leaving this blank work?
+	return []sdk.AccAddress{msg.Sender}
 }
 
-type MsgStartDebtAuction struct{}
+type MsgStartDebtAuction struct {
+	Sender sdk.AccAddress // only needed to pay the tx fees
+}
 
-func NewMsgStartDebtAuction() MsgStartDebtAuction        { return MsgStartDebtAuction{} }
-func (msg MsgStartDebtAuction) Route() string            { return "liquidator" }
-func (msg MsgStartDebtAuction) Type() string             { return "start_debt_auction" } // TODO snake case?
-func (msg MsgStartDebtAuction) ValidateBasic() sdk.Error { return nil }
+func (msg MsgStartDebtAuction) Route() string { return "liquidator" }
+func (msg MsgStartDebtAuction) Type() string  { return "start_debt_auction" } // TODO snake case?
+func (msg MsgStartDebtAuction) ValidateBasic() sdk.Error {
+	if msg.Sender.Empty() {
+		return sdk.ErrInternal("invalid (empty) sender address")
+	}
+	return nil
+}
 func (msg MsgStartDebtAuction) GetSignBytes() []byte {
 	return sdk.MustSortJSON(msgCdc.MustMarshalJSON(msg))
 }
-func (msg MsgStartDebtAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{} }
+func (msg MsgStartDebtAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
 
-type MsgStartSurplusAuction struct{}
+type MsgStartSurplusAuction struct {
+	Sender sdk.AccAddress // only needed to pay the tx fees
+}
 
-func NewMsgStartSurplusAuction() MsgStartSurplusAuction     { return MsgStartSurplusAuction{} }
-func (msg MsgStartSurplusAuction) Route() string            { return "liquidator" }
-func (msg MsgStartSurplusAuction) Type() string             { return "start_debt_auction" } // TODO snake case?
-func (msg MsgStartSurplusAuction) ValidateBasic() sdk.Error { return nil }
+func (msg MsgStartSurplusAuction) Route() string { return "liquidator" }
+func (msg MsgStartSurplusAuction) Type() string  { return "start_surplus_auction" } // TODO snake case?
+func (msg MsgStartSurplusAuction) ValidateBasic() sdk.Error {
+	if msg.Sender.Empty() {
+		return sdk.ErrInternal("invalid (empty) sender address")
+	}
+	return nil
+}
 func (msg MsgStartSurplusAuction) GetSignBytes() []byte {
 	return sdk.MustSortJSON(msgCdc.MustMarshalJSON(msg))
 }
-func (msg MsgStartSurplusAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{} }
+func (msg MsgStartSurplusAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
