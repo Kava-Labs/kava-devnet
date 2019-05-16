@@ -173,12 +173,9 @@ func (k Keeper) SeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom 
 
 	// TODO update global seized debt? this is what maker does (named vice in Vat.grab) but it's not used anywhere
 
-	// Empty CDP of collateral and debt // TODO this should just delete the CDP
-	cdp.Debt = sdk.ZeroInt()
-	cdp.CollateralAmount = sdk.ZeroInt()
-
-	// Store updated state
-	k.setCDP(ctx, cdp)
+	// Empty CDP of collateral and debt and store updated state
+	// zeroing out collateralAmount and Debt in a CDP is equivalent to deleting it in the current no-ID model
+	k.deleteCDP(ctx, cdp)
 	k.setCollateralState(ctx, cState)
 	return cdp, nil
 }
