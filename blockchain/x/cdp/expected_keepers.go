@@ -2,7 +2,7 @@ package cdp
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed" // TODO What's the go pattern for avoiding returning specific types from interfaces?
+	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 
 type bankKeeper interface {
@@ -14,7 +14,7 @@ type bankKeeper interface {
 
 type pricefeedKeeper interface {
 	GetCurrentPrice(sdk.Context, string) pricefeed.CurrentPrice
-	// These are used for testing TODO can they be removed from here?
+	// These are used for testing TODO replace mockApp with keeper in tests to remove these
 	AddAsset(sdk.Context, string, string)
 	SetPrice(sdk.Context, sdk.AccAddress, string, sdk.Dec, sdk.Int) (pricefeed.PostedPrice, sdk.Error)
 	SetCurrentPrices(sdk.Context) sdk.Error

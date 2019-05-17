@@ -40,7 +40,7 @@ func (msg MsgPostPrice) Type() string { return TypeMsgPostPrice }
 
 // GetSignBytes Implements Msg.
 func (msg MsgPostPrice) GetSignBytes() []byte {
-	bz := msgCdc.MustMarshalJSON(msg) // TODO define msgCdc in codec.go as they seem to do in gov module
+	bz := msgCdc.MustMarshalJSON(msg)
 	return sdk.MustSortJSON(bz)
 }
 
