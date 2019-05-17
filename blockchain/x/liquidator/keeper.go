@@ -38,7 +38,7 @@ func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAdd
 	// Get Seized CDP
 	seizedCDP, found := k.GetSeizedCDP(ctx, originalOwner, collateralDenom)
 	if !found {
-		return 0, sdk.ErrInternal("CDP not found")
+		return 0, sdk.ErrInternal("seized CDP not found")
 	}
 	// Calculate how much stable coin to try and raise in this auction
 	stableToRaise := sdk.MinInt(seizedCDP.Debt, CollateralAuctionMaxBid)
@@ -97,7 +97,7 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 	return auctionID, nil
 }
 
-// With no stablity and liquidation fees, surplus auctions can never be run.
+// With no stability and liquidation fees, surplus auctions can never be run.
 // StartSurplusAuction sells off excess stable coin in exchange for gov coin, which is burned
 // Known as Vow.flap in maker
 // result: stable coin removed from module account (eventually to buyer), gov coin transferred to module account

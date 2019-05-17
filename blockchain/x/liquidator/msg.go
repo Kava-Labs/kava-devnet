@@ -10,26 +10,25 @@ Design options and problems:
 	- senders have to pay fees
 	- these msgs cannot be bundled into a tx with a PlaceBid msg because PlaceBid requires an auction ID
  - msgs that start auctions and place an initial bid
-	- couples two processes that may need to be handled separately
+	- place bid can fail, leaving auction without bids which is similar to first case
  - no msgs, auctions started automatically
-	- not clear how this should be done
 	- running this as an endblocker adds complexity and potential vulnerabilities
 */
 
-type MsgSeizeAndStartCollateralAuction struct {
+type MsgStartCollateralAuction struct {
 	Sender          sdk.AccAddress // only needed to pay the tx fees
 	CdpOwner        sdk.AccAddress
 	CollateralDenom string
 }
 
 // Route return the message type used for routing the message.
-func (msg MsgSeizeAndStartCollateralAuction) Route() string { return "liquidator" }
+func (msg MsgStartCollateralAuction) Route() string { return "liquidator" }
 
 // Type returns a human-readable string for the message, intended for utilization within tags.
-func (msg MsgSeizeAndStartCollateralAuction) Type() string { return "seize_and_start_auction" } // TODO snake case?
+func (msg MsgStartCollateralAuction) Type() string { return "start_auction" } // TODO snake case?
 
 // ValidateBasic does a simple validation check that doesn't require access to any other information.
-func (msg MsgSeizeAndStartCollateralAuction) ValidateBasic() sdk.Error {
+func (msg MsgStartCollateralAuction) ValidateBasic() sdk.Error {
 	if msg.Sender.Empty() {
 		return sdk.ErrInternal("invalid (empty) sender address")
 	}
@@ -41,13 +40,13 @@ func (msg MsgSeizeAndStartCollateralAuction) ValidateBasic() sdk.Error {
 }
 
 // GetSignBytes gets the canonical byte representation of the Msg.
-func (msg MsgSeizeAndStartCollateralAuction) GetSignBytes() []byte {
+func (msg MsgStartCollateralAuction) GetSignBytes() []byte {
 	bz := msgCdc.MustMarshalJSON(msg)
 	return sdk.MustSortJSON(bz)
 }
 
 // GetSigners returns the addresses of signers that must sign.
-func (msg MsgSeizeAndStartCollateralAuction) GetSigners() []sdk.AccAddress {
+func (msg MsgStartCollateralAuction) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Sender}
 }
 
@@ -68,7 +67,7 @@ func (msg MsgStartDebtAuction) GetSignBytes() []byte {
 }
 func (msg MsgStartDebtAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
 
-// With no stablity and liquidation fees, surplus auctions can never be run.
+// With no stability and liquidation fees, surplus auctions can never be run.
 // type MsgStartSurplusAuction struct {
 // 	Sender sdk.AccAddress // only needed to pay the tx fees
 // }
