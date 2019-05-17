@@ -11,7 +11,6 @@ Notes
 
 TODO
  - remove fake bank keeper and setup a proper liquidator module account
- - replace the mockpricefeed with the real one
  - returning ErrInternal doesn't show error message in tests
  - what happens if a collateral type is removed from the list of allowed ones?
  - Should the values used to generate a key for a stored struct be in the struct?
