@@ -11,12 +11,6 @@ type GenesisState struct {
 	// don't need to setup CollateralStates as they are created as needed
 }
 
-// NewGenesisState creates a new genesis state.
-// TODO write this
-// func NewGenesisState() GenesisState {
-// 	return GenesisState{CdpModuleParams: CdpModuleParams{}}
-// }
-
 // DefaultGenesisState returns a default genesis state
 func DefaultGenesisState() GenesisState {
 	return GenesisState{
