@@ -69,14 +69,16 @@ func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAdd
 // Known as Vow.flop in maker
 // result: minted gov coin moved to highest bidder, stable coin moved to moduleAccount
 func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
-	// TODO where is the best place for settleDebt to be called? Should it be a message type?
-	k.settleDebt(ctx)
 
-	// TODO ensure amount of seized stable coin is 0
+	// Ensure amount of seized stable coin is 0 (ie Joy = 0)
+	stableCoins := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
+	if !stableCoins.IsZero() {
+		return 0, sdk.ErrInternal("debt auction cannot be started as there is outstanding stable coins")
+	}
 
 	// check the seized debt is above a threshold
 	seizedDebt := k.GetSeizedDebt(ctx)
-	if seizedDebt.LT(DebtAuctionSize) {
+	if seizedDebt.Available().LT(DebtAuctionSize) {
 		return 0, sdk.ErrInternal("not enough seized debt to start an auction")
 	}
 	// start reverse auction, selling minted gov coin for stable coin
@@ -89,9 +91,9 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 	if err != nil {
 		return 0, err
 	}
-	// reduce debt
-	// TODO don't reduce debt, only place into other variable (Ash), debt should only be reduced through annihilation with stable coin
-	k.setSeizedDebt(ctx, seizedDebt.Sub(DebtAuctionSize))
+	// Record amount of debt sent for auction. Debt can only be reduced in lock step with reducing stable coin
+	seizedDebt.SentToAuction = seizedDebt.SentToAuction.Add(DebtAuctionSize)
+	k.setSeizedDebt(ctx, seizedDebt)
 	return auctionID, nil
 }
 
@@ -100,8 +102,6 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 // Known as Vow.flap in maker
 // result: stable coin removed from module account (eventually to buyer), gov coin transferred to module account
 // func (k Keeper) StartSurplusAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
-// 	// TODO where is the best place for settleDebt to be called? Should it be a message type?
-// 	k.settleDebt(ctx)
 
 // 	// TODO ensure seized debt is 0
 
@@ -131,8 +131,9 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 		return err // cdp could be not found, or not under collateralized
 	}
 
-	// increment the total seized debt by cdp.debt. // aka Awe
-	seizedDebt := k.GetSeizedDebt(ctx).Add(cdp.Debt)
+	// increment the total seized debt (Awe) by cdp.debt
+	seizedDebt := k.GetSeizedDebt(ctx)
+	seizedDebt.Total = seizedDebt.Total.Add(cdp.Debt)
 	k.setSeizedDebt(ctx, seizedDebt)
 
 	// create a SeizedCDP. This is needed because the collateral is auctioned off per CDP. // aka create Cat.Flip object
@@ -147,18 +148,14 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 	return nil
 }
 
-// SettleDebt removes equal amounts of debt and stable coin from the liquidator's reserves (and also updates the total debt counter)
-// Debt and stable coin balances decreased by this function and by starting surplus/debt auctions
-// Debt is incremented only by SeizeUnderCollateralizedCDP
-// Stable coins are incremented only by auction.PlaceBid and auction.Close
-// Start Debt/Surplus Auction is only function that depends on debt/stableCoin balances
-// TODO When should this be called? Should it be called with an amount, rather than annihilating the maximum? Currently called before starting the surplus/debt auctions
+// SettleDebt removes equal amounts of debt and stable coin from the liquidator's reserves (and also updates the global debt in the cdp module).
+// This is called in the handler when a debt or surplus auction is started
+// TODO Should this be called with an amount, rather than annihilating the maximum?
 func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
-	// calculate max amount of debt and stable coins that can be settled (ie annihilated)
-	// TODO annihilate both Woe and Ash
+	// Calculate max amount of debt and stable coins that can be settled (ie annihilated)
 	debt := k.GetSeizedDebt(ctx)
 	stableCoins := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
-	settleAmount := sdk.MinInt(debt, stableCoins)
+	settleAmount := sdk.MinInt(debt.Total, stableCoins)
 
 	// Call cdp module to reduce GlobalDebt. This can fail if genesis not set
 	err := k.cdpKeeper.ReduceGlobalDebt(ctx, settleAmount)
@@ -166,10 +163,16 @@ func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 		return err
 	}
 
-	// decrement total seized debt by above amount
-	k.setSeizedDebt(ctx, debt.Sub(settleAmount))
+	// Decrement total seized debt
+	// Also decrement from SentToAuction debt
+	updatedTotal := debt.Total.Sub(settleAmount) // minimum 0
+	updatedSentToAuction := debt.SentToAuction.Sub(settleAmount)
+	if updatedSentToAuction.IsNegative() {
+		updatedSentToAuction = sdk.ZeroInt()
+	}
+	k.setSeizedDebt(ctx, SeizedDebt{Total: updatedTotal, SentToAuction: updatedSentToAuction})
 
-	// subtract stable coin from moduleAccout
+	// Subtract stable coin from moduleAccout
 	k.bankKeeper.SubtractCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), sdk.Coins{sdk.NewCoin(k.cdpKeeper.GetStableDenom(), settleAmount)})
 	return nil
 }
@@ -204,18 +207,18 @@ func (k Keeper) deleteSeizedCDP(ctx sdk.Context, cdp SeizedCDP) {
 func (k Keeper) getSeizedDebtKey() []byte {
 	return []byte("seizedDebt")
 }
-func (k Keeper) GetSeizedDebt(ctx sdk.Context) sdk.Int {
+func (k Keeper) GetSeizedDebt(ctx sdk.Context) SeizedDebt {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get(k.getSeizedDebtKey())
 	if bz == nil {
 		// TODO make initial seized debt and CDPs configurable at genesis, then panic here if not found
-		bz = k.cdc.MustMarshalBinaryLengthPrefixed(sdk.NewInt(0))
+		bz = k.cdc.MustMarshalBinaryLengthPrefixed(SeizedDebt{sdk.ZeroInt(), sdk.ZeroInt()})
 	}
-	var seizedDebt sdk.Int
+	var seizedDebt SeizedDebt
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &seizedDebt)
 	return seizedDebt
 }
-func (k Keeper) setSeizedDebt(ctx sdk.Context, debt sdk.Int) {
+func (k Keeper) setSeizedDebt(ctx sdk.Context, debt SeizedDebt) {
 	store := ctx.KVStore(k.storeKey)
 	bz := k.cdc.MustMarshalBinaryLengthPrefixed(debt)
 	store.Set(k.getSeizedDebtKey(), bz)

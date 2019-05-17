@@ -36,6 +36,9 @@ func handleMsgSeizeAndStartCollateralAuction(ctx sdk.Context, keeper Keeper, msg
 }
 
 func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
+	// cancel out any debt and stable coins before trying to start auction
+	keeper.settleDebt(ctx)
+	// start an auction
 	_, err := keeper.StartDebtAuction(ctx)
 	if err != nil {
 		return err.Result()
@@ -45,6 +48,7 @@ func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
 
 // With no stablity and liquidation fees, surplus auctions can never be run.
 // func handleMsgStartSurplusAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
+//  keeper.settleDebt(ctx)
 // 	_, err := keeper.StartSurplusAuction(ctx)
 // 	if err != nil {
 // 		return err.Result()

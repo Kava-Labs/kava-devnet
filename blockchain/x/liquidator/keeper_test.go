@@ -31,16 +31,19 @@ func TestKeeper_StartCollateralAuction(t *testing.T) {
 func TestKeeper_StartDebtAuction(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
-	initSDebt := i(2000)
+	initSDebt := SeizedDebt{i(2000),i(0)}
 	k.liquidatorKeeper.setSeizedDebt(ctx, initSDebt)
 
 	// Execute
 	auctionID, err := k.liquidatorKeeper.StartDebtAuction(ctx)
 
 	// Check
-	require.Nil(t, err)
+	require.NoError(t, err)
 	require.Equal(t,
-		initSDebt.Sub(DebtAuctionSize),
+		SeizedDebt{
+			initSDebt.Total,
+			initSDebt.SentToAuction.Add(DebtAuctionSize),
+		},
 		k.liquidatorKeeper.GetSeizedDebt(ctx),
 	)
 	_, found := k.auctionKeeper.GetAuction(ctx, auctionID)
@@ -72,7 +75,7 @@ func TestKeeper_StartDebtAuction(t *testing.T) {
 func TestKeeper_GetSetSeizedDebt(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
-	debt := i(528452456344)
+	debt := SeizedDebt{i(234247645), i(2343)}
 
 	// Run test function
 	k.liquidatorKeeper.setSeizedDebt(ctx, debt)
