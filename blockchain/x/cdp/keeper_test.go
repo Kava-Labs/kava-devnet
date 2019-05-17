@@ -12,9 +12,6 @@ import (
 )
 
 // How could one reduce the number of params in the test cases. Create a table driven test for each of the 4 add/withdraw collateral/debt?
-// Keeper test just needs a mock keeper, not a whole mock app. Stake does this. It creates an in memory db, and creates all the sub keepers needed. Somewhat verbose though.
-
-// TODO sort the coins in the test to avoid error in comparing coins. Use sdk.NewCoins in v0.34
 
 func TestKeeper_ModifyCDP(t *testing.T) {
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
@@ -119,7 +116,6 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 			if tc.priorState.CollateralState.Denom != "" {
 				keeper.setCollateralState(ctx, tc.priorState.CollateralState)
 			}
-			// TODO close/commit block?
 
 			// call func under test
 			err := keeper.ModifyCDP(ctx, tc.args.owner, tc.args.collateralDenom, tc.args.changeInCollateral, tc.args.changeInDebt)

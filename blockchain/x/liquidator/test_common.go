@@ -6,7 +6,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/auth"
 	"github.com/cosmos/cosmos-sdk/x/bank"
-	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	abci "github.com/tendermint/tendermint/abci/types"
 	dbm "github.com/tendermint/tendermint/libs/db"
@@ -16,71 +15,6 @@ import (
 	"github.com/kava-labs/usdx/blockchain/x/cdp"
 	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
-
-func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
-	// Create uninitialized mock app
-	mapp := mock.NewApp()
-
-	// Register codecs
-	bank.RegisterCodec(mapp.Cdc)
-	pricefeed.RegisterCodec(mapp.Cdc)
-	auction.RegisterCodec(mapp.Cdc)
-	cdp.RegisterCodec(mapp.Cdc)
-	RegisterCodec(mapp.Cdc)
-
-	// Create keepers
-	keyPriceFeed := sdk.NewKVStoreKey(pricefeed.StoreKey)
-	keyCDP := sdk.NewKVStoreKey("cdp")
-	keyAuction := sdk.NewKVStoreKey("auction")
-	keyLiquidator := sdk.NewKVStoreKey("liquidator")
-
-	priceFeedKeeper := pricefeed.NewKeeper(keyPriceFeed, mapp.Cdc, pricefeed.DefaultCodespace)
-	bankKeeper := bank.NewBaseKeeper(mapp.AccountKeeper, mapp.ParamsKeeper.Subspace(bank.DefaultParamspace), bank.DefaultCodespace)
-	cdpKeeper := cdp.NewKeeper(mapp.Cdc, keyCDP, mapp.ParamsKeeper.Subspace("cdpSubspace"), priceFeedKeeper, bankKeeper)
-	auctionKeeper := auction.NewKeeper(mapp.Cdc, cdpKeeper, keyAuction)                         // Note: cdp keeper stands in for bank keeper
-	liquidatorKeeper := NewKeeper(mapp.Cdc, keyLiquidator, cdpKeeper, auctionKeeper, cdpKeeper) // Note: cdp keeper stands in for bank keeper
-
-	// Register routes
-	mapp.Router().
-		AddRoute("bank", bank.NewHandler(bankKeeper)).
-		AddRoute("pricefeed", pricefeed.NewHandler(priceFeedKeeper)).
-		AddRoute("cdp", cdp.NewHandler(cdpKeeper)).
-		AddRoute("liquidator", NewHandler(liquidatorKeeper)).
-		AddRoute("auction", auction.NewHandler(auctionKeeper))
-
-	mapp.SetInitChainer(
-		func(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
-			res := mapp.InitChainer(ctx, req)
-			bank.InitGenesis(ctx, bankKeeper, bank.DefaultGenesisState())
-			pfGenState := pricefeed.GenesisState{
-				Assets: []pricefeed.Asset{
-					{AssetCode: "btc", Description: ""},
-					{AssetCode: "xrp", Description: ""},
-				},
-			}
-			pricefeed.InitGenesis(ctx, priceFeedKeeper, pfGenState)
-			cdp.InitGenesis(ctx, cdpKeeper, cdp.DefaultGenesisState())
-			return res
-		},
-	)
-	mapp.SetEndBlocker(
-		func(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
-			auctionTags := auction.EndBlocker(ctx, auctionKeeper)
-			pricefeedTags := pricefeed.EndBlocker(ctx, priceFeedKeeper)
-			return abci.ResponseEndBlock{
-				Tags: append(auctionTags, pricefeedTags...),
-			}
-		},
-	)
-
-	// Mount and load the stores
-	err := mapp.CompleteSetup(keyPriceFeed, keyCDP, keyAuction, keyLiquidator)
-	if err != nil {
-		panic(err)
-	}
-
-	return mapp, liquidatorKeeper
-}
 
 // Avoid cluttering test cases with long function name
 func i(in int64) sdk.Int                    { return sdk.NewInt(in) }

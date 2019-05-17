@@ -10,7 +10,7 @@ func init() {
 
 // RegisterCodec registers concrete types on the codec.
 func RegisterCodec(cdc *codec.Codec) {
-	cdc.RegisterConcrete(MsgSeizeAndStartCollateralAuction{}, "usdx/MsgSeizeAndStartCollateralAuction", nil) // TODO what is the correct name/path for this?
-	cdc.RegisterConcrete(MsgStartDebtAuction{}, "usdx/MsgStartDebtAuction", nil)
-	cdc.RegisterConcrete(MsgStartSurplusAuction{}, "usdx/MsgStartSurplusAuction", nil)
+	cdc.RegisterConcrete(MsgSeizeAndStartCollateralAuction{}, "liquidator/MsgSeizeAndStartCollateralAuction", nil)
+	cdc.RegisterConcrete(MsgStartDebtAuction{}, "liquidator/MsgStartDebtAuction", nil)
+	cdc.RegisterConcrete(MsgStartSurplusAuction{}, "liquidator/MsgStartSurplusAuction", nil)
 }
