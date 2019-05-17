@@ -47,27 +47,27 @@ func TestKeeper_StartDebtAuction(t *testing.T) {
 	require.True(t, found)
 }
 
-func TestKeeper_StartSurplusAuction(t *testing.T) {
-	// Setup
-	ctx, k := setupTestKeepers()
-	initSurplus := i(2000)
-	k.liquidatorKeeper.bankKeeper.AddCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), cs(sdk.NewCoin(k.cdpKeeper.GetStableDenom(), initSurplus)))
-	k.liquidatorKeeper.setSeizedDebt(ctx, i(0))
+// func TestKeeper_StartSurplusAuction(t *testing.T) {
+// 	// Setup
+// 	ctx, k := setupTestKeepers()
+// 	initSurplus := i(2000)
+// 	k.liquidatorKeeper.bankKeeper.AddCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), cs(sdk.NewCoin(k.cdpKeeper.GetStableDenom(), initSurplus)))
+// 	k.liquidatorKeeper.setSeizedDebt(ctx, i(0))
 
-	// Execute
-	auctionID, err := k.liquidatorKeeper.StartSurplusAuction(ctx)
+// 	// Execute
+// 	auctionID, err := k.liquidatorKeeper.StartSurplusAuction(ctx)
 
-	// Check
-	require.NoError(t, err)
-	require.Equal(t,
-		initSurplus.Sub(SurplusAuctionSize),
-		k.liquidatorKeeper.bankKeeper.GetCoins(ctx,
-			k.cdpKeeper.GetLiquidatorAccountAddress(),
-		).AmountOf(k.cdpKeeper.GetStableDenom()),
-	)
-	_, found := k.auctionKeeper.GetAuction(ctx, auctionID)
-	require.True(t, found)
-}
+// 	// Check
+// 	require.NoError(t, err)
+// 	require.Equal(t,
+// 		initSurplus.Sub(SurplusAuctionSize),
+// 		k.liquidatorKeeper.bankKeeper.GetCoins(ctx,
+// 			k.cdpKeeper.GetLiquidatorAccountAddress(),
+// 		).AmountOf(k.cdpKeeper.GetStableDenom()),
+// 	)
+// 	_, found := k.auctionKeeper.GetAuction(ctx, auctionID)
+// 	require.True(t, found)
+// }
 
 func TestKeeper_GetSetSeizedDebt(t *testing.T) {
 	// Setup

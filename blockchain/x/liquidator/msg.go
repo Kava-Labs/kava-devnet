@@ -68,19 +68,20 @@ func (msg MsgStartDebtAuction) GetSignBytes() []byte {
 }
 func (msg MsgStartDebtAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
 
-type MsgStartSurplusAuction struct {
-	Sender sdk.AccAddress // only needed to pay the tx fees
-}
+// With no stablity and liquidation fees, surplus auctions can never be run.
+// type MsgStartSurplusAuction struct {
+// 	Sender sdk.AccAddress // only needed to pay the tx fees
+// }
 
-func (msg MsgStartSurplusAuction) Route() string { return "liquidator" }
-func (msg MsgStartSurplusAuction) Type() string  { return "start_surplus_auction" } // TODO snake case?
-func (msg MsgStartSurplusAuction) ValidateBasic() sdk.Error {
-	if msg.Sender.Empty() {
-		return sdk.ErrInternal("invalid (empty) sender address")
-	}
-	return nil
-}
-func (msg MsgStartSurplusAuction) GetSignBytes() []byte {
-	return sdk.MustSortJSON(msgCdc.MustMarshalJSON(msg))
-}
-func (msg MsgStartSurplusAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
+// func (msg MsgStartSurplusAuction) Route() string { return "liquidator" }
+// func (msg MsgStartSurplusAuction) Type() string  { return "start_surplus_auction" } // TODO snake case?
+// func (msg MsgStartSurplusAuction) ValidateBasic() sdk.Error {
+// 	if msg.Sender.Empty() {
+// 		return sdk.ErrInternal("invalid (empty) sender address")
+// 	}
+// 	return nil
+// }
+// func (msg MsgStartSurplusAuction) GetSignBytes() []byte {
+// 	return sdk.MustSortJSON(msgCdc.MustMarshalJSON(msg))
+// }
+// func (msg MsgStartSurplusAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }

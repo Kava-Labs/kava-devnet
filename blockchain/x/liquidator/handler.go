@@ -14,8 +14,8 @@ func NewHandler(keeper Keeper) sdk.Handler {
 			return handleMsgSeizeAndStartCollateralAuction(ctx, keeper, msg)
 		case MsgStartDebtAuction:
 			return handleMsgStartDebtAuction(ctx, keeper)
-		case MsgStartSurplusAuction:
-			return handleMsgStartSurplusAuction(ctx, keeper)
+		// case MsgStartSurplusAuction:
+		// 	return handleMsgStartSurplusAuction(ctx, keeper)
 		default:
 			errMsg := fmt.Sprintf("Unrecognized liquidator msg type: %T", msg)
 			return sdk.ErrUnknownRequest(errMsg).Result()
@@ -43,10 +43,11 @@ func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
 	return sdk.Result{} // TODO tags
 }
 
-func handleMsgStartSurplusAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
-	_, err := keeper.StartSurplusAuction(ctx)
-	if err != nil {
-		return err.Result()
-	}
-	return sdk.Result{} // TODO tags
-}
+// With no stablity and liquidation fees, surplus auctions can never be run.
+// func handleMsgStartSurplusAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
+// 	_, err := keeper.StartSurplusAuction(ctx)
+// 	if err != nil {
+// 		return err.Result()
+// 	}
+// 	return sdk.Result{} // TODO tags
+// }

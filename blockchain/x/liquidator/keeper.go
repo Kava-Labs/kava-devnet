@@ -72,6 +72,8 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 	// TODO where is the best place for settleDebt to be called? Should it be a message type?
 	k.settleDebt(ctx)
 
+	// TODO ensure amount of seized stable coin is 0
+
 	// check the seized debt is above a threshold
 	seizedDebt := k.GetSeizedDebt(ctx)
 	if seizedDebt.LT(DebtAuctionSize) {
@@ -88,35 +90,39 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 		return 0, err
 	}
 	// reduce debt
+	// TODO don't reduce debt, only place into other variable (Ash), debt should only be reduced through annihilation with stable coin
 	k.setSeizedDebt(ctx, seizedDebt.Sub(DebtAuctionSize))
 	return auctionID, nil
 }
 
+// With no stablity and liquidation fees, surplus auctions can never be run.
 // StartSurplusAuction sells off excess stable coin in exchange for gov coin, which is burned
 // Known as Vow.flap in maker
 // result: stable coin removed from module account (eventually to buyer), gov coin transferred to module account
-func (k Keeper) StartSurplusAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
-	// TODO where is the best place for settleDebt to be called? Should it be a message type?
-	k.settleDebt(ctx)
+// func (k Keeper) StartSurplusAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
+// 	// TODO where is the best place for settleDebt to be called? Should it be a message type?
+// 	k.settleDebt(ctx)
 
-	// check there is enough surplus to be sold
-	surplus := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
-	if surplus.LT(SurplusAuctionSize) {
-		return 0, sdk.ErrInternal("not enough surplus stable coin to start an auction")
-	}
-	// start normal auction, selling stable coin
-	auctionID, err := k.auctionKeeper.StartForwardAuction(
-		ctx,
-		k.cdpKeeper.GetLiquidatorAccountAddress(),
-		sdk.NewCoin(k.cdpKeeper.GetStableDenom(), SurplusAuctionSize),
-		sdk.NewInt64Coin(k.cdpKeeper.GetGovDenom(), 0),
-	)
-	if err != nil {
-		return 0, err
-	}
-	// Starting the auction will remove coins from the account, so they don't need modified here.
-	return auctionID, nil
-}
+// 	// TODO ensure seized debt is 0
+
+// 	// check there is enough surplus to be sold
+// 	surplus := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
+// 	if surplus.LT(SurplusAuctionSize) {
+// 		return 0, sdk.ErrInternal("not enough surplus stable coin to start an auction")
+// 	}
+// 	// start normal auction, selling stable coin
+// 	auctionID, err := k.auctionKeeper.StartForwardAuction(
+// 		ctx,
+// 		k.cdpKeeper.GetLiquidatorAccountAddress(),
+// 		sdk.NewCoin(k.cdpKeeper.GetStableDenom(), SurplusAuctionSize),
+// 		sdk.NewInt64Coin(k.cdpKeeper.GetGovDenom(), 0),
+// 	)
+// 	if err != nil {
+// 		return 0, err
+// 	}
+// 	// Starting the auction will remove coins from the account, so they don't need modified here.
+// 	return auctionID, nil
+// }
 
 func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) sdk.Error { // aka Cat.bite
 	// Seize the cdp in the cdp module
@@ -149,6 +155,7 @@ func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddres
 // TODO When should this be called? Should it be called with an amount, rather than annihilating the maximum? Currently called before starting the surplus/debt auctions
 func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 	// calculate max amount of debt and stable coins that can be settled (ie annihilated)
+	// TODO annihilate both Woe and Ash
 	debt := k.GetSeizedDebt(ctx)
 	stableCoins := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
 	settleAmount := sdk.MinInt(debt, stableCoins)
