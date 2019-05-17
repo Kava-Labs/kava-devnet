@@ -57,7 +57,11 @@ func bidHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc 
 		strBid := vars[restBid]
 		strLot := vars[restLot]
 
-		auctionID := sdk.NewUintFromString(strAuctionID)
+		auctionID, err := auction.NewIDFromString(strAuctionID)
+		if err != nil {
+			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
+			return
+		}
 
 		bidder, err := sdk.AccAddressFromBech32(bechBidder)
 		if err != nil {
@@ -77,7 +81,7 @@ func bidHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc 
 			return
 		}
 
-		msg := auction.NewMsgPlaceBid(auctionID.Uint64(), bidder, bid, lot)
+		msg := auction.NewMsgPlaceBid(auctionID, bidder, bid, lot)
 		clientrest.WriteGenerateStdTxResponse(w, cdc, cliCtx, req.BaseReq, []sdk.Msg{msg})
 
 	}
