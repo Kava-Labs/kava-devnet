@@ -26,41 +26,38 @@ func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, cdpKeeper cdpKeeper, auc
 }
 
 var ( // TODO move into params, pick good defaults
-	CollateralAuctionMaxBid = sdk.NewInt(1000) // known as Cat.ilk[n].lump in maker
-	DebtAuctionSize         = sdk.NewInt(1000) // known as Vow.sump in maker
-	SurplusAuctionSize      = sdk.NewInt(1000) // known as Voe.bump in maker
+	CollateralAuctionSize = sdk.NewInt(1000) // known as Cat.ilk[n].lump in maker
+	DebtAuctionSize       = sdk.NewInt(1000) // known as Vow.sump in maker
+	SurplusAuctionSize    = sdk.NewInt(1000) // known as Voe.bump in maker
 )
 
-// StartCollateralAuction pulls collateral out of a (seized) CDP and sells it in an auction for stable coin. Excess collateral goes to the original CDP owner
-// Known as Cat.flip in maker
-// result: stable coin is transferred to moduleAccount, collateral is transferred from module account to buyer, (and any excess collateral is transferred to original CDP owner)
-func (k Keeper) StartCollateralAuction(ctx sdk.Context, originalOwner sdk.AccAddress, collateralDenom string) (auction.ID, sdk.Error) {
-	// Get Seized CDP
-	seizedCDP, found := k.GetSeizedCDP(ctx, originalOwner, collateralDenom)
+// SeizeAndStartCollateralAuction pulls collateral out of a CDP and sells it in an auction for stable coin. Excess collateral goes to the original CDP owner.
+// Known as Cat.bite in maker
+// result: stable coin is transferred to module account, collateral is transferred from module account to buyer, (and any excess collateral is transferred to original CDP owner)
+func (k Keeper) SeizeAndStartCollateralAuction(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) (auction.ID, sdk.Error) {
+	// Get CDP
+	cdp, found := k.cdpKeeper.GetCDP(ctx, owner, collateralDenom)
 	if !found {
-		return 0, sdk.ErrInternal("seized CDP not found")
+		return 0, sdk.ErrInternal("")
 	}
-	// Calculate how much stable coin to try and raise in this auction
-	stableToRaise := sdk.MinInt(seizedCDP.Debt, CollateralAuctionMaxBid)
-	// calculate how much collateral to sell: collateralToSell/collateral = stableToRaise/debt
-	// TODO test the maths here
-	collateralToSell := sdk.NewDecFromInt(stableToRaise).Quo(sdk.NewDecFromInt(seizedCDP.Debt)).Mul(sdk.NewDecFromInt(seizedCDP.CollateralAmount)).RoundInt()
 
-	// Subtract these values from the seizedCDP
-	seizedCDP.Debt = seizedCDP.Debt.Sub(stableToRaise)
-	seizedCDP.CollateralAmount = seizedCDP.CollateralAmount.Sub(collateralToSell)
-	// Start "forward reverse" auction type
-	lot := sdk.NewCoin(seizedCDP.CollateralDenom, collateralToSell)
-	maxBid := sdk.NewCoin(k.cdpKeeper.GetStableDenom(), stableToRaise)
-	auctionID, err := k.auctionKeeper.StartForwardReverseAuction(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), lot, maxBid, seizedCDP.Owner)
+	// Calculate amount of collateral to sell in this auction
+	collateralToSell := sdk.MinInt(cdp.CollateralAmount, CollateralAuctionSize)
+	// Calculate the corresponding maximum amount of stable coin to raise TODO test maths
+	stableToRaise := sdk.NewDecFromInt(collateralToSell).Quo(sdk.NewDecFromInt(cdp.CollateralAmount)).Mul(sdk.NewDecFromInt(cdp.Debt)).RoundInt()
+
+	// Seize the collateral and debt from the CDP
+	err := k.partialSeizeCDP(ctx, owner, collateralDenom, collateralToSell, stableToRaise)
 	if err != nil {
 		return 0, err
 	}
-	// Store seizedCDP
-	if seizedCDP.CollateralAmount.IsZero() && seizedCDP.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
-		k.deleteSeizedCDP(ctx, seizedCDP)
-	} else {
-		k.setSeizedCDP(ctx, seizedCDP)
+
+	// Start "forward reverse" auction type
+	lot := sdk.NewCoin(cdp.CollateralDenom, collateralToSell)
+	maxBid := sdk.NewCoin(k.cdpKeeper.GetStableDenom(), stableToRaise)
+	auctionID, err := k.auctionKeeper.StartForwardReverseAuction(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), lot, maxBid, owner)
+	if err != nil {
+		panic(err) // TODO how can errors here be handled to be safe with the state update in PartialSeizeCDP?
 	}
 	return auctionID, nil
 }
@@ -125,7 +122,7 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 // }
 
 // PartialSeizeCDP seizes some collateral and debt from an under-collateralized CDP.
-func (k Keeper) PartialSeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string, collateralToSeize sdk.Int, debtToSeize sdk.Int) sdk.Error { // aka Cat.bite
+func (k Keeper) partialSeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string, collateralToSeize sdk.Int, debtToSeize sdk.Int) sdk.Error { // aka Cat.bite
 	// Seize debt and collateral in the cdp module. This also validates the inputs.
 	err := k.cdpKeeper.PartialSeizeCDP(ctx, owner, collateralDenom, collateralToSeize, debtToSeize)
 	if err != nil {

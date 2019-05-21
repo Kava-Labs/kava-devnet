@@ -10,8 +10,8 @@ import (
 func NewHandler(keeper Keeper) sdk.Handler {
 	return func(ctx sdk.Context, msg sdk.Msg) sdk.Result {
 		switch msg := msg.(type) {
-		case MsgStartCollateralAuction:
-			return handleMsgStartCollateralAuction(ctx, keeper, msg)
+		case MsgSeizeAndStartCollateralAuction:
+			return handleMsgSeizeAndStartCollateralAuction(ctx, keeper, msg)
 		case MsgStartDebtAuction:
 			return handleMsgStartDebtAuction(ctx, keeper)
 		// case MsgStartSurplusAuction:
@@ -23,12 +23,12 @@ func NewHandler(keeper Keeper) sdk.Handler {
 	}
 }
 
-func handleMsgStartCollateralAuction(ctx sdk.Context, keeper Keeper, msg MsgStartCollateralAuction) sdk.Result {
-	_, err := keeper.StartCollateralAuction(ctx, msg.CdpOwner, msg.CollateralDenom)
+func handleMsgSeizeAndStartCollateralAuction(ctx sdk.Context, keeper Keeper, msg MsgSeizeAndStartCollateralAuction) sdk.Result {
+	_, err := keeper.SeizeAndStartCollateralAuction(ctx, msg.CdpOwner, msg.CollateralDenom)
 	if err != nil {
 		return err.Result()
 	}
-	return sdk.Result{} // TODO tags
+	return sdk.Result{} // TODO tags, return auction ID
 }
 
 func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
@@ -39,7 +39,7 @@ func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
 	if err != nil {
 		return err.Result()
 	}
-	return sdk.Result{} // TODO tags
+	return sdk.Result{} // TODO tags, return auction ID
 }
 
 // With no stability and liquidation fees, surplus auctions can never be run.

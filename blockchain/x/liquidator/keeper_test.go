@@ -11,24 +11,35 @@ import (
 	"github.com/kava-labs/usdx/blockchain/x/cdp"
 )
 
-func TestKeeper_StartCollateralAuction(t *testing.T) {
-	// Setup keeper and context
+func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) { 
+	// Setup
 	ctx, k := setupTestKeepers()
-	// Create seized CDP
+
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
-	cdp := SeizedCDP{Owner: addrs[0], CollateralAmount: i(10), CollateralDenom: "btc", Debt: i(500)}
-	k.liquidatorKeeper.setSeizedCDP(ctx, cdp)
-	k.liquidatorKeeper.bankKeeper.AddCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), cs(sdk.NewCoin(cdp.CollateralDenom, cdp.CollateralAmount)))
 
-	// Start auction
-	auctionID, err := k.liquidatorKeeper.StartCollateralAuction(ctx, cdp.Owner, cdp.CollateralDenom)
+	cdp.InitGenesis(ctx, k.cdpKeeper, cdp.DefaultGenesisState())
+	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeed.GenesisState{Assets: []pricefeed.Asset{{"btc", "a description"}}})
+	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("8000.00"), i(999999999))
+	k.pricefeedKeeper.SetCurrentPrices(ctx)
+	k.bankKeeper.AddCoins(ctx, addrs[0], cs(c("btc", 100)))
 
-	// Check CDP is changed correctly
+	k.cdpKeeper.ModifyCDP(ctx, addrs[0], "btc", i(3), i(16000))
+
+	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("7999.99"), i(999999999))
+	k.pricefeedKeeper.SetCurrentPrices(ctx)
+
+	// Run test function
+	auctionID, err := k.liquidatorKeeper.SeizeAndStartCollateralAuction(ctx, addrs[0], "btc")
+
+	// Check CDP
 	require.NoError(t, err)
-	_, found := k.liquidatorKeeper.GetSeizedCDP(ctx, cdp.Owner, cdp.CollateralDenom)
+	_, found := k.cdpKeeper.GetCDP(ctx, addrs[0], "btc")
 	require.False(t, found)
+	// TODO check cdp values are corret
+	// Check auction exists
 	_, found = k.auctionKeeper.GetAuction(ctx, auctionID)
 	require.True(t, found)
+	// TODO check auction values are correct
 }
 
 func TestKeeper_StartDebtAuction(t *testing.T) {
@@ -75,7 +86,7 @@ func TestKeeper_StartDebtAuction(t *testing.T) {
 // 	require.True(t, found)
 // }
 
-func TestKeeper_PartialSeizeCDP(t *testing.T) {
+func TestKeeper_partialSeizeCDP(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
 
@@ -93,7 +104,7 @@ func TestKeeper_PartialSeizeCDP(t *testing.T) {
 	k.pricefeedKeeper.SetCurrentPrices(ctx)
 
 	// Run test function
-	err := k.liquidatorKeeper.PartialSeizeCDP(ctx, addrs[0], "btc", i(2), i(10000))
+	err := k.liquidatorKeeper.partialSeizeCDP(ctx, addrs[0], "btc", i(2), i(10000))
 
 	// Check
 	require.NoError(t, err)
