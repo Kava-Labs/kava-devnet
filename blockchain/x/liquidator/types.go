@@ -2,11 +2,7 @@ package liquidator
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
-	"github.com/kava-labs/usdx/blockchain/x/cdp"
 )
-
-type SeizedCDP = cdp.CDP // TODO is this a reasonable thing to do?
 
 type SeizedDebt struct {
 	Total         sdk.Int // Total debt seized from CDPs. Known as Awe in maker.

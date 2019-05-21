@@ -17,8 +17,6 @@ func NewQuerier(keeper Keeper) sdk.Querier {
 			return queryGetFreeDebt(ctx, path[1:], req, keeper)
 		// case QueryGetSurplus:
 		// 	return queryGetSurplus()
-		// case QueryGetSeizedCDPs:
-		// 	return queryGetSeizedCDPs()
 		default:
 			return nil, sdk.ErrUnknownRequest("unknown cdp query endpoint")
 		}

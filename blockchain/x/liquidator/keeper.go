@@ -174,29 +174,6 @@ func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 
 // ---------- Store Wrappers ----------
 
-func (k Keeper) getSeizedCDPKey(owner sdk.AccAddress, collateralDenom string) []byte {
-	return []byte(owner.String() + collateralDenom)
-}
-func (k Keeper) GetSeizedCDP(ctx sdk.Context, originalOwner sdk.AccAddress, collateralDenom string) (SeizedCDP, bool) {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get(k.getSeizedCDPKey(originalOwner, collateralDenom))
-	if bz == nil {
-		return SeizedCDP{}, false
-	}
-	var seizedCdp SeizedCDP
-	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &seizedCdp)
-	return seizedCdp, true
-}
-func (k Keeper) setSeizedCDP(ctx sdk.Context, cdp SeizedCDP) {
-	store := ctx.KVStore(k.storeKey)
-	bz := k.cdc.MustMarshalBinaryLengthPrefixed(cdp)
-	store.Set(k.getSeizedCDPKey(cdp.Owner, cdp.CollateralDenom), bz)
-}
-func (k Keeper) deleteSeizedCDP(ctx sdk.Context, cdp SeizedCDP) {
-	store := ctx.KVStore(k.storeKey)
-	store.Delete(k.getSeizedCDPKey(cdp.Owner, cdp.CollateralDenom))
-}
-
 // TODO setting and getting seized debt could be abstracted into add/subtract
 // seized debt is known as Awe in maker
 func (k Keeper) getSeizedDebtKey() []byte {
