@@ -7,11 +7,11 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 	"github.com/kava-labs/usdx/blockchain/x/cdp"
+	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 
-func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) { 
+func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
 
@@ -45,7 +45,7 @@ func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {
 func TestKeeper_StartDebtAuction(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
-	initSDebt := SeizedDebt{i(2000),i(0)}
+	initSDebt := SeizedDebt{i(2000), i(0)}
 	k.liquidatorKeeper.setSeizedDebt(ctx, initSDebt)
 
 	// Execute
