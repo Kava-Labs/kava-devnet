@@ -44,10 +44,10 @@ func TestApp_Basic(t *testing.T) {
 
 	// Set max bid high to make this test easier
 	// TODO remove with more advanced tests
-	originalMaxBid := liquidator.CollateralAuctionMaxBid
-	liquidator.CollateralAuctionMaxBid = i(100000)
+	originalMaxBid := liquidator.CollateralAuctionSize
+	liquidator.CollateralAuctionSize = i(100000)
 	defer (func() {
-		liquidator.CollateralAuctionMaxBid = originalMaxBid // reset to avoid messing up any other tests
+		liquidator.CollateralAuctionSize = originalMaxBid // reset to avoid messing up any other tests
 	})()
 
 	// Set the current price @ 8k $/BTC
