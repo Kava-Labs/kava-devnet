@@ -80,8 +80,15 @@ func setupTestKeepers() (sdk.Context, keepers) {
 		pricefeedKeeper,
 		bankKeeper,
 	)
-	auctionKeeper := auction.NewKeeper(cdc, cdpKeeper, keyAuction)                         // Note: cdp keeper stands in for bank keeper
-	liquidatorKeeper := NewKeeper(cdc, keyLiquidator, cdpKeeper, auctionKeeper, cdpKeeper) // Note: cdp keeper stands in for bank keeper
+	auctionKeeper := auction.NewKeeper(cdc, cdpKeeper, keyAuction) // Note: cdp keeper stands in for bank keeper
+	liquidatorKeeper := NewKeeper(
+		cdc,
+		keyLiquidator,
+		paramsKeeper.Subspace("liquidatorSubspace"),
+		cdpKeeper,
+		auctionKeeper,
+		cdpKeeper,
+	) // Note: cdp keeper stands in for bank keeper
 
 	// Create context
 	ctx := sdk.NewContext(ms, abci.Header{ChainID: "testchain"}, false, log.NewNopLogger())
@@ -90,6 +97,7 @@ func setupTestKeepers() (sdk.Context, keepers) {
 	// TODO move out of this function
 	// auth genesis - requires fee keeper
 	cdp.InitGenesis(ctx, cdpKeeper, cdp.DefaultGenesisState())
+	InitGenesis(ctx, liquidatorKeeper, DefaultGenesisState())
 
 	return ctx, keepers{
 		paramsKeeper,

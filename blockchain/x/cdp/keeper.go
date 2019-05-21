@@ -240,17 +240,17 @@ func (k Keeper) GetGovDenom() string {
 	return GovDenom
 }
 
-// ---------- Parameter Fetching ----------
+// ---------- Module Parameters ----------
 
 func (k Keeper) GetParams(ctx sdk.Context) CdpModuleParams {
 	var p CdpModuleParams
-	k.paramsSubspace.Get(ctx, cdpModuleParamsKey, &p)
+	k.paramsSubspace.Get(ctx, moduleParamsKey, &p)
 	return p
 }
 
 // This is only needed to be able to setup the store from the genesis file. The keeper should not change any of the params itself.
 func (k Keeper) setParams(ctx sdk.Context, cdpModuleParams CdpModuleParams) {
-	k.paramsSubspace.Set(ctx, cdpModuleParamsKey, &cdpModuleParams)
+	k.paramsSubspace.Set(ctx, moduleParamsKey, &cdpModuleParams)
 }
 
 // ---------- Store Wrappers ----------

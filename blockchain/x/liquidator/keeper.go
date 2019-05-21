@@ -3,25 +3,29 @@ package liquidator
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+	"github.com/cosmos/cosmos-sdk/x/params"
 
 	"github.com/kava-labs/usdx/blockchain/x/auction"
 )
 
 type Keeper struct {
-	cdc           *codec.Codec
-	storeKey      sdk.StoreKey
-	cdpKeeper     cdpKeeper
-	auctionKeeper auctionKeeper
-	bankKeeper    bankKeeper
+	cdc            *codec.Codec
+	paramsSubspace params.Subspace
+	storeKey       sdk.StoreKey
+	cdpKeeper      cdpKeeper
+	auctionKeeper  auctionKeeper
+	bankKeeper     bankKeeper
 }
 
-func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, cdpKeeper cdpKeeper, auctionKeeper auctionKeeper, bankKeeper bankKeeper) Keeper {
+func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, cdpKeeper cdpKeeper, auctionKeeper auctionKeeper, bankKeeper bankKeeper) Keeper {
+	subspace = subspace.WithKeyTable(createParamsKeyTable())
 	return Keeper{
-		cdc:           cdc,
-		storeKey:      storeKey,
-		cdpKeeper:     cdpKeeper,
-		auctionKeeper: auctionKeeper,
-		bankKeeper:    bankKeeper,
+		cdc:            cdc,
+		paramsSubspace: subspace,
+		storeKey:       storeKey,
+		cdpKeeper:      cdpKeeper,
+		auctionKeeper:  auctionKeeper,
+		bankKeeper:     bankKeeper,
 	}
 }
 
@@ -168,6 +172,19 @@ func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 	// Subtract stable coin from moduleAccout
 	k.bankKeeper.SubtractCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), sdk.Coins{sdk.NewCoin(k.cdpKeeper.GetStableDenom(), settleAmount)})
 	return nil
+}
+
+// ---------- Module Parameters ----------
+
+func (k Keeper) GetParams(ctx sdk.Context) LiquidatorModuleParams {
+	var params LiquidatorModuleParams
+	k.paramsSubspace.Get(ctx, moduleParamsKey, &params)
+	return params
+}
+
+// This is only needed to be able to setup the store from the genesis file. The keeper should not change any of the params itself.
+func (k Keeper) setParams(ctx sdk.Context, params LiquidatorModuleParams) {
+	k.paramsSubspace.Set(ctx, moduleParamsKey, &params)
 }
 
 // ---------- Store Wrappers ----------
