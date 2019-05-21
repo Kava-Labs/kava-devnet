@@ -6,6 +6,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/stretchr/testify/require"
+
+	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
+	"github.com/kava-labs/usdx/blockchain/x/cdp"
 )
 
 func TestKeeper_StartCollateralAuction(t *testing.T) {
@@ -71,6 +74,34 @@ func TestKeeper_StartDebtAuction(t *testing.T) {
 // 	_, found := k.auctionKeeper.GetAuction(ctx, auctionID)
 // 	require.True(t, found)
 // }
+
+func TestKeeper_PartialSeizeCDP(t *testing.T) {
+	// Setup
+	ctx, k := setupTestKeepers()
+
+	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
+
+	cdp.InitGenesis(ctx, k.cdpKeeper, cdp.DefaultGenesisState())
+	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeed.GenesisState{Assets: []pricefeed.Asset{{"btc", "a description"}}})
+	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("8000.00"), i(999999999))
+	k.pricefeedKeeper.SetCurrentPrices(ctx)
+	k.bankKeeper.AddCoins(ctx, addrs[0], cs(c("btc", 100)))
+
+	k.cdpKeeper.ModifyCDP(ctx, addrs[0], "btc", i(3), i(16000))
+
+	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("7999.99"), i(999999999))
+	k.pricefeedKeeper.SetCurrentPrices(ctx)
+
+	// Run test function
+	err := k.liquidatorKeeper.PartialSeizeCDP(ctx, addrs[0], "btc", i(2), i(10000))
+
+	// Check
+	require.NoError(t, err)
+	cdp, found := k.cdpKeeper.GetCDP(ctx, addrs[0], "btc")
+	require.True(t, found)
+	require.Equal(t, i(1), cdp.CollateralAmount)
+	require.Equal(t, i(6000), cdp.Debt)
+}
 
 func TestKeeper_GetSetSeizedDebt(t *testing.T) {
 	// Setup

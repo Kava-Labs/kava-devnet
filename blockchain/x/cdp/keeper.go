@@ -69,11 +69,11 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	// Add/Subtract collateral and debt
 	cdp.CollateralAmount = cdp.CollateralAmount.Add(changeInCollateral)
 	if cdp.CollateralAmount.IsNegative() {
-		return sdk.ErrInternal(" can't withdraw more collateral than present in CDP")
+		return sdk.ErrInternal(" can't withdraw more collateral than exists in CDP")
 	}
 	cdp.Debt = cdp.Debt.Add(changeInDebt)
 	if cdp.Debt.IsNegative() {
-		return sdk.ErrInternal("can't pay back more debt than exist in CDP")
+		return sdk.ErrInternal("can't pay back more debt than exists in CDP")
 	}
 	isUnderCollateralized := cdp.IsUnderCollateralized(
 		k.pricefeed.GetCurrentPrice(ctx, cdp.CollateralDenom).Price,
@@ -146,14 +146,13 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 // 	return nil
 // }
 
-// SeizeCDP empties a CDP of collateral and debt and decrements global debt counters. It does not move collateral to another account so is generally unsafe.
-// TODO should this be made safer by moving collateral to liquidatorModuleAccount ?
-// TODO if so how should debt be moved?
-func (k Keeper) SeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) (CDP, sdk.Error) {
+// PartialSeizeCDP removes collateral and debt from a CDP and decrements global debt counters. It does not move collateral to another account so is unsafe.
+// TODO should this be made safer by moving collateral to liquidatorModuleAccount ? If so how should debt be moved?
+func (k Keeper) PartialSeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string, collateralToSeize sdk.Int, debtToSeize sdk.Int) sdk.Error {
 	// get CDP
 	cdp, found := k.GetCDP(ctx, owner, collateralDenom)
 	if !found {
-		return CDP{}, sdk.ErrInternal("could not find CDP")
+		return sdk.ErrInternal("could not find CDP")
 	}
 
 	// Check if CDP is undercollateralized
@@ -163,25 +162,48 @@ func (k Keeper) SeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom 
 		p.GetCollateralParams(cdp.CollateralDenom).LiquidationRatio,
 	)
 	if !isUnderCollateralized {
-		return CDP{}, sdk.ErrInternal("CDP is not currently under the liquidation ratio")
+		return sdk.ErrInternal("CDP is not currently under the liquidation ratio")
+	}
+
+	// Remove Collateral
+	if collateralToSeize.IsNegative() {
+		return sdk.ErrInternal("cannot seize negative collateral")
+	}
+	cdp.CollateralAmount = cdp.CollateralAmount.Sub(collateralToSeize)
+	if cdp.CollateralAmount.IsNegative() {
+		return sdk.ErrInternal("can't seize more collateral than exists in CDP")
+	}
+
+	// Remove Debt
+	if debtToSeize.IsNegative() {
+		return sdk.ErrInternal("cannot seize negative debt")
+	}
+	cdp.Debt = cdp.Debt.Sub(debtToSeize)
+	if cdp.Debt.IsNegative() {
+		return sdk.ErrInternal("can't seize more debt than exists in CDP")
 	}
 
 	// Update debt per collateral type
 	cState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
 	if !found {
-		return CDP{}, sdk.ErrInternal("could not find collateral state")
+		return sdk.ErrInternal("could not find collateral state")
 	}
-	cState.TotalDebt = cState.TotalDebt.Sub(cdp.Debt)
+	cState.TotalDebt = cState.TotalDebt.Sub(debtToSeize)
+	if cState.TotalDebt.IsNegative() {
+		return sdk.ErrInternal("Total debt per collateral type is negative.") // This should not happen given the checks on the CDP.
+	}
 
 	// Note: Global debt is not decremented here. It's only decremented when debt and stable coin are annihilated (aka heal)
-
 	// TODO update global seized debt? this is what maker does (named vice in Vat.grab) but it's not used anywhere
 
-	// Empty CDP of collateral and debt and store updated state
-	// zeroing out collateralAmount and Debt in a CDP is equivalent to deleting it in the current no-ID model
-	k.deleteCDP(ctx, cdp)
+	// Store updated state
+	if cdp.CollateralAmount.IsZero() && cdp.Debt.IsZero() { // TODO maybe abstract this logic into setCDP
+		k.deleteCDP(ctx, cdp)
+	} else {
+		k.setCDP(ctx, cdp)
+	}
 	k.setCollateralState(ctx, cState)
-	return cdp, nil
+	return nil
 }
 
 // ReduceGlobalDebt decreases the stored global debt counter. It is used by the liquidator when it annihilates debt and stable coin.

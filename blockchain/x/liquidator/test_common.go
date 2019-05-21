@@ -57,7 +57,7 @@ func setupTestKeepers() (sdk.Context, keepers) {
 	}
 
 	// Create Codec
-	cdc := MakeTestCodec()
+	cdc := makeTestCodec()
 
 	// Create Keepers
 	paramsKeeper := params.NewKeeper(cdc, keyParams, tkeyParams)
@@ -102,7 +102,7 @@ func setupTestKeepers() (sdk.Context, keepers) {
 	}
 }
 
-func MakeTestCodec() *codec.Codec {
+func makeTestCodec() *codec.Codec {
 	var cdc = codec.New()
 	auth.RegisterCodec(cdc)
 	bank.RegisterCodec(cdc)

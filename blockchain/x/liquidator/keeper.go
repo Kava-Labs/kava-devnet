@@ -124,23 +124,21 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 // 	return auctionID, nil
 // }
 
-func (k Keeper) SeizeUnderCollateralizedCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) sdk.Error { // aka Cat.bite
-	// Seize the cdp in the cdp module
-	cdp, err := k.cdpKeeper.SeizeCDP(ctx, owner, collateralDenom) // just empties it and updates the global debt in cdp the module
+// PartialSeizeCDP seizes some collateral and debt from an under-collateralized CDP.
+func (k Keeper) PartialSeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string, collateralToSeize sdk.Int, debtToSeize sdk.Int) sdk.Error { // aka Cat.bite
+	// Seize debt and collateral in the cdp module. This also validates the inputs.
+	err := k.cdpKeeper.PartialSeizeCDP(ctx, owner, collateralDenom, collateralToSeize, debtToSeize)
 	if err != nil {
-		return err // cdp could be not found, or not under collateralized
+		return err // cdp could be not found, or not under collateralized, or inputs invalid
 	}
 
 	// increment the total seized debt (Awe) by cdp.debt
 	seizedDebt := k.GetSeizedDebt(ctx)
-	seizedDebt.Total = seizedDebt.Total.Add(cdp.Debt)
+	seizedDebt.Total = seizedDebt.Total.Add(debtToSeize)
 	k.setSeizedDebt(ctx, seizedDebt)
 
-	// create a SeizedCDP. This is needed because the collateral is auctioned off per CDP. // aka create Cat.Flip object
-	k.setSeizedCDP(ctx, cdp)
-
 	// add cdp.collateral amount of coins to the moduleAccount (so they can be transferred to the auction later)
-	coins := sdk.NewCoins(sdk.NewCoin(cdp.CollateralDenom, cdp.CollateralAmount))
+	coins := sdk.NewCoins(sdk.NewCoin(collateralDenom, collateralToSeize))
 	_, _, err = k.bankKeeper.AddCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), coins)
 	if err != nil {
 		panic(err) // TODO this shouldn't happen?

@@ -4,11 +4,10 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
 	"github.com/kava-labs/usdx/blockchain/x/auction"
-	"github.com/kava-labs/usdx/blockchain/x/cdp"
 )
 
 type cdpKeeper interface {
-	SeizeCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, sdk.Error)
+	PartialSeizeCDP(sdk.Context, sdk.AccAddress, string, sdk.Int, sdk.Int) sdk.Error
 	ReduceGlobalDebt(sdk.Context, sdk.Int) sdk.Error
 	GetStableDenom() string // TODO can this be removed somehow?
 	GetGovDenom() string
