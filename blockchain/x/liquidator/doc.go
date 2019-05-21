@@ -12,11 +12,8 @@ Notes
 	- liquidator needs get access to stable and gov denoms from the cdp module
 
 TODO
- - FIX: after a CDP is seized, users can create a new one, which if also seized will collide with prexisting seized CDP
  - Add some kind of more complete test
- - Add an endblocker that seizes all undercollateralized CDPs (requires queue structure in CDP module)
  - Add params (need access to the collateral types for fees. Can this module access the cdp module params?)
- - rename SeizedDebt to TotalSeizedDebt ?
  - Add constants for the module and route names
  - user facing things like cli, rest, querier, tags
  - custom error types, codespace

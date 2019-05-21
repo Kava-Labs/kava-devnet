@@ -158,14 +158,12 @@ func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 		return err
 	}
 
-	// Decrement total seized debt
-	// Also decrement from SentToAuction debt
-	updatedTotal := debt.Total.Sub(settleAmount) // minimum 0
-	updatedSentToAuction := debt.SentToAuction.Sub(settleAmount)
-	if updatedSentToAuction.IsNegative() {
-		updatedSentToAuction = sdk.ZeroInt()
+	// Decrement total seized debt (also decrement from SentToAuction debt)
+	updatedDebt, err := debt.Settle(settleAmount)
+	if err != nil {
+		return err // this should not error in this context
 	}
-	k.setSeizedDebt(ctx, SeizedDebt{Total: updatedTotal, SentToAuction: updatedSentToAuction})
+	k.setSeizedDebt(ctx, updatedDebt)
 
 	// Subtract stable coin from moduleAccout
 	k.bankKeeper.SubtractCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress(), sdk.Coins{sdk.NewCoin(k.cdpKeeper.GetStableDenom(), settleAmount)})
@@ -174,8 +172,6 @@ func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 
 // ---------- Store Wrappers ----------
 
-// TODO setting and getting seized debt could be abstracted into add/subtract
-// seized debt is known as Awe in maker
 func (k Keeper) getSeizedDebtKey() []byte {
 	return []byte("seizedDebt")
 }
