@@ -4,8 +4,9 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/mock"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 	abci "github.com/tendermint/tendermint/abci/types"
+
+	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
 )
 
 // Mock app is an ABCI app with an in memory database.
@@ -53,5 +54,6 @@ func setUpMockAppWithoutGenesis() (*mock.App, Keeper) {
 
 // Avoid cluttering test cases with long function name
 func i(in int64) sdk.Int                    { return sdk.NewInt(in) }
+func d(str string) sdk.Dec                  { return sdk.MustNewDecFromStr(str) }
 func c(denom string, amount int64) sdk.Coin { return sdk.NewInt64Coin(denom, amount) }
 func cs(coins ...sdk.Coin) sdk.Coins        { return sdk.NewCoins(coins...) }

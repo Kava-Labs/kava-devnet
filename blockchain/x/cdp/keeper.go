@@ -1,7 +1,9 @@
 package cdp
 
 import (
+	"bytes"
 	"fmt"
+	"sort"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -198,27 +200,33 @@ func (k Keeper) ReduceGlobalDebt(ctx sdk.Context, amount sdk.Int) sdk.Error {
 	return nil
 }
 
-// TODO
-// func (k Keeper) GetUnderCollateralizedCDPs() sdk.Error {
-// 	// get current prices of assets // priceFeedKeeper.GetCurrentPrice(denom)
-
-// 	// get an iterator over the CDPs that only includes undercollateralized CDPs
-// 	//    should be possible to store cdps by a key that is their collateral/debt ratio, then the iterator thing can be used to get only the undercollaterized ones (for a given price)
-
-// 	// combine all the iterators for the different assets?
-
-// 	// return iterator
-// 	return nil
-// }
-
-func (k Keeper) GetStableDenom() string {
-	return StableDenom
+// GetUnderCollateralizedCDPs returns CDPs that will be below the liquidation ratio at the specified price.
+// It returns a slice, scoped to one collateral type, and sorted by collateral ratio
+func (k Keeper) GetUnderCollateralizedCDPs(ctx sdk.Context, collateralDenom string, price sdk.Dec) ([]CDP, sdk.Error) {
+	// Get CDPs for the collateral type
+	params := k.GetParams(ctx)
+	if !params.IsCollateralPresent(collateralDenom) {
+		return nil, sdk.ErrInternal("collateral denom not authorised")
+	}
+	cdps := k.GetCDPs(ctx, collateralDenom)
+	// Sort by collateral ratio (collateral/debt)
+	sort.Sort(byCollateralRatio(cdps))
+	// Filter for CDPs that would be under-collateralized at the specified price
+	var filteredCDPs []CDP
+	for _, cdp := range cdps {
+		if cdp.IsUnderCollateralized(price, params.GetCollateralParams(collateralDenom).LiquidationRatio) {
+			filteredCDPs = append(filteredCDPs, cdp)
+		} else {
+			break // break early because list is sorted
+		}
 }
-func (k Keeper) GetGovDenom() string {
-	return GovDenom
+	return filteredCDPs, nil
 }
 
-// ---------- Parameter Fetching ----------
+func (k Keeper) GetStableDenom() string { return StableDenom }
+func (k Keeper) GetGovDenom() string    { return GovDenom }
+
+// ---------- Module Parameters ----------
 
 func (k Keeper) GetParams(ctx sdk.Context) CdpModuleParams {
 	var p CdpModuleParams
@@ -233,8 +241,23 @@ func (k Keeper) setParams(ctx sdk.Context, cdpModuleParams CdpModuleParams) {
 
 // ---------- Store Wrappers ----------
 
+func (k Keeper) getCDPKeyPrefix(collateralDenom string) []byte {
+	return bytes.Join(
+		[][]byte{
+			[]byte("cdp"),
+			[]byte(collateralDenom),
+		},
+		nil, // no separator
+	)
+}
 func (k Keeper) getCDPKey(owner sdk.AccAddress, collateralDenom string) []byte {
-	return []byte(owner.String() + collateralDenom)
+	return bytes.Join(
+		[][]byte{
+			k.getCDPKeyPrefix(collateralDenom),
+			[]byte(owner.String()),
+		},
+		nil, // no separator
+	)
 }
 func (k Keeper) GetCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom string) (CDP, bool) {
 	// get store
@@ -255,14 +278,29 @@ func (k Keeper) setCDP(ctx sdk.Context, cdp CDP) {
 	// marshal and set
 	bz := k.cdc.MustMarshalBinaryLengthPrefixed(cdp)
 	store.Set(k.getCDPKey(cdp.Owner, cdp.CollateralDenom), bz)
-	// TODO add to iterator
 }
 func (k Keeper) deleteCDP(ctx sdk.Context, cdp CDP) { // TODO should this id the cdp by passing in owner,collateralDenom pair?
 	// get store
 	store := ctx.KVStore(k.storeKey)
 	// delete key
 	store.Delete(k.getCDPKey(cdp.Owner, cdp.CollateralDenom))
-	// TODO remove from iterator
+}
+
+// GetCDP returns a list of all CDPs scoped to the specified collateral type.
+// Passing "" for the collateral type will return all CDPs. // TODO is there a better/safer way of doing this?
+func (k Keeper) GetCDPs(ctx sdk.Context, collateralDenom string) []CDP {
+	// Get an iterator over CDPs
+	store := ctx.KVStore(k.storeKey)
+	iter := sdk.KVStorePrefixIterator(store, k.getCDPKeyPrefix(collateralDenom))
+
+	// Decode CDPs into slice
+	var cdps []CDP
+	for ; iter.Valid(); iter.Next() {
+		var cdp CDP
+		k.cdc.MustUnmarshalBinaryLengthPrefixed(iter.Value(), &cdp)
+		cdps = append(cdps, cdp)
+	}
+	return cdps
 }
 
 var globalDebtKey = []byte("globalDebt")

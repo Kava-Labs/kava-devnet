@@ -185,6 +185,73 @@ func TestKeeper_SeizeCDP(t *testing.T) {
 	require.True(t, found)
 	require.Equal(t, sdk.ZeroInt(), cState.TotalDebt)
 }
+
+func TestKeeper_GetUnderCollateralizedCDPs(t *testing.T) {
+	// setup keeper
+	mapp, keeper := setUpMockAppWithoutGenesis()
+	mock.SetGenesis(mapp, []auth.Account(nil))
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
+	// setup CDPs
+	_, addrs := mock.GeneratePrivKeyAddressPairs(2)
+	cdps := []CDP{
+		{addrs[0], "xrp", i(4000), i(5)},
+		{addrs[1], "xrp", i(4000), i(2000)},
+		{addrs[0], "btc", i(10), i(20)},
+	}
+	for _, cdp := range cdps {
+		keeper.setCDP(ctx, cdp)
+	}
+	// Check correct CDPs filtered by collateral and sorted
+	underCollateralizedCDPs, err := keeper.GetUnderCollateralizedCDPs(ctx, "xrp", d("0.00000001"))
+	require.NoError(t, err)
+	require.Equal(t,
+		[]CDP{
+			{addrs[1], "xrp", i(4000), i(2000)},
+			{addrs[0], "xrp", i(4000), i(5)}},
+		underCollateralizedCDPs,
+	)
+	// Check high price returns no CDPs
+	underCollateralizedCDPs, err = keeper.GetUnderCollateralizedCDPs(ctx, "xrp", d("999999999.99"))
+	require.NoError(t, err)
+	require.Equal(t,
+		[]CDP(nil),
+		underCollateralizedCDPs,
+	)
+	// Check unauthorized collateral denom returns error
+	_, err = keeper.GetUnderCollateralizedCDPs(ctx, "", d("0.34023"))
+	require.Error(t, err)
+}
+func TestKeeper_GetCDPs(t *testing.T) {
+	// setup keeper
+	mapp, keeper := setUpMockAppWithoutGenesis()
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
+	// create CDP
+	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
+	cdp := CDP{addrs[0], "xrp", i(412), i(56)}
+	keeper.setCDP(ctx, cdp)
+
+	// Check GetCDPs returns the cdp in the correct contexts
+	cdps := keeper.GetCDPs(ctx, "")
+	require.Contains(t, cdps, cdp)
+
+	cdps = keeper.GetCDPs(ctx, cdp.CollateralDenom)
+	require.Contains(t, cdps, cdp)
+
+	cdps = keeper.GetCDPs(ctx, "a non existent coin")
+	require.NotContains(t, cdps, cdp)
+
+	keeper.deleteCDP(ctx, cdp)
+
+	cdps = keeper.GetCDPs(ctx, "")
+	require.NotContains(t, cdps, cdp)
+
+	cdps = keeper.GetCDPs(ctx, cdp.CollateralDenom)
+	require.NotContains(t, cdps, cdp)
+}
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP
 	mapp, keeper := setUpMockAppWithoutGenesis()

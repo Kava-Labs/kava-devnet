@@ -19,6 +19,28 @@ func (cdp CDP) IsUnderCollateralized(price sdk.Dec, liquidationRatio sdk.Dec) bo
 	return collateralValue.LT(minCollateralValue) // TODO LT or LTE?
 }
 
+// byCollateralRatio is used to sort CDPs
+type byCollateralRatio []CDP
+
+func (cdps byCollateralRatio) Len() int      { return len(cdps) }
+func (cdps byCollateralRatio) Swap(i, j int) { cdps[i], cdps[j] = cdps[j], cdps[i] }
+func (cdps byCollateralRatio) Less(i, j int) bool {
+	// Sort by "collateral ratio" ie collateralAmount/Debt
+	// The comparison is: collat_i/debt_i < collat_j/debt_j
+	// But to avoid division this can be rearranged to: collat_i*debt_j < collat_j*debt_i
+	// Provided the values are positive, so check for positive values.
+	if cdps[i].CollateralAmount.IsNegative() ||
+		cdps[i].Debt.IsNegative() ||
+		cdps[j].CollateralAmount.IsNegative() ||
+		cdps[j].Debt.IsNegative() {
+		panic("negative collateral and debt not supported in CDPs")
+	}
+	// TODO overflows could cause panics
+	left := cdps[i].CollateralAmount.Mul(cdps[j].Debt)
+	right := cdps[j].CollateralAmount.Mul(cdps[i].Debt)
+	return left.LT(right)
+}
+
 // CollateralState stores global information tied to a particular collateral type.
 type CollateralState struct {
 	Denom     string  // Type of collateral
