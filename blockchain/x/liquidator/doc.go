@@ -13,9 +13,8 @@ Notes
 
 TODO
  - Add some kind of more complete test
- - Add params (need access to the collateral types for fees. Can this module access the cdp module params?)
  - Add constants for the module and route names
- - user facing things like cli, rest, querier, tags
+ - tags
  - custom error types, codespace
 */
 package liquidator
