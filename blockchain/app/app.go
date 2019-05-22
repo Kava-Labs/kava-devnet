@@ -112,6 +112,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 	app.liquidatorKeeper = liquidator.NewKeeper(
 		app.cdc,
 		app.keyLiquidator,
+		app.paramsKeeper.Subspace("liquidator"),
 		app.cdpKeeper,
 		app.auctionKeeper,
 		app.cdpKeeper, // CDP keeper standing in for bank
@@ -133,7 +134,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 		AddRoute(auth.QuerierRoute, auth.NewQuerier(app.accountKeeper)).
 		AddRoute("pricefeed", pricefeed.NewQuerier(app.pricefeedKeeper)).
 		AddRoute("cdp", cdp.NewQuerier(app.cdpKeeper)).
-		AddRoute("auction", auction.NewQuerier(app.auctionKeeper))
+		AddRoute("auction", auction.NewQuerier(app.auctionKeeper)).
+		AddRoute("liquidator", liquidator.NewQuerier(app.liquidatorKeeper))
 
 	// The initChainer handles translating the genesis.json file into initial state for the network
 	app.SetInitChainer(app.initChainer)
@@ -161,11 +163,12 @@ func NewUsdxApp(logger log.Logger, db dbm.DB) *UsdxApp {
 
 // GenesisState represents chain state at the start of the chain. Any initial state (account balances) are stored here.
 type GenesisState struct {
-	AuthData      auth.GenesisState      `json:"auth"`
-	BankData      bank.GenesisState      `json:"bank"`
-	PricefeedData pricefeed.GenesisState `json:"pricfeed"`
-	CdpData       cdp.GenesisState       `json:"cdp"`
-	Accounts      []auth.Account         `json:"accounts"` // TODO should this be type []*auth.baseAccount?
+	AuthData       auth.GenesisState       `json:"auth"`
+	BankData       bank.GenesisState       `json:"bank"`
+	PricefeedData  pricefeed.GenesisState  `json:"pricfeed"`
+	CdpData        cdp.GenesisState        `json:"cdp"`
+	LiquidatorData liquidator.GenesisState `json:"liquidator"`
+	Accounts       []auth.Account          `json:"accounts"` // TODO should this be type []*auth.baseAccount?
 }
 
 func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
@@ -186,6 +189,7 @@ func (app *UsdxApp) initChainer(ctx sdk.Context, req abci.RequestInitChain) abci
 	bank.InitGenesis(ctx, app.bankKeeper, genesisState.BankData)
 	pricefeed.InitGenesis(ctx, app.pricefeedKeeper, genesisState.PricefeedData)
 	cdp.InitGenesis(ctx, app.cdpKeeper, genesisState.CdpData)
+	liquidator.InitGenesis(ctx, app.liquidatorKeeper, genesisState.LiquidatorData)
 	return abci.ResponseInitChain{}
 }
 

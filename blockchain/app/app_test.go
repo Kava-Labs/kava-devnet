@@ -32,23 +32,19 @@ func TestApp_Basic(t *testing.T) {
 	pricefeedGenState := pricefeed.GenesisState{
 		Assets: []pricefeed.Asset{{AssetCode: "btc", Description: ""}},
 	}
+	liquidatorGenState := liquidator.GenesisState{liquidator.LiquidatorModuleParams{
+		CollateralParams: []liquidator.CollateralParams{{Denom: "btc", AuctionSize: i(100)}}, // set high auction size so CDPs are liquidated in one lump
+	}}
 	genState := app.GenesisState{
 		AuthData:      auth.DefaultGenesisState(),
 		BankData:      bank.DefaultGenesisState(),
 		CdpData:       cdp.DefaultGenesisState(),
+		LiquidatorData:       liquidatorGenState,
 		PricefeedData: pricefeedGenState,
 		Accounts:      genAccs,
 	}
 	cdc := app.MakeCodec() // TODO does this need to be `app.cdc` or will this do? Should we export mapp.Cdc ?
 	setGenesis(cdc, mapp, genState)
-
-	// Set max bid high to make this test easier
-	// TODO remove with more advanced tests
-	originalMaxBid := liquidator.CollateralAuctionSize
-	liquidator.CollateralAuctionSize = i(100000)
-	defer (func() {
-		liquidator.CollateralAuctionSize = originalMaxBid // reset to avoid messing up any other tests
-	})()
 
 	// Set the current price @ 8k $/BTC
 	// pricefeed assets were added in genesis, post price message, leave to endblocker for price to be set

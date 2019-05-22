@@ -14,7 +14,7 @@ type GenesisState struct {
 func DefaultGenesisState() GenesisState {
 	return GenesisState{
 		LiquidatorModuleParams{
-			DebtAuctionSize: sdk.NewInt(10000),
+			DebtAuctionSize: sdk.NewInt(1000),
 			CollateralParams: []CollateralParams{
 				{
 					Denom:       "btc",
@@ -22,7 +22,7 @@ func DefaultGenesisState() GenesisState {
 				},
 				{
 					Denom:       "xrp",
-					AuctionSize: sdk.NewInt(10000),
+					AuctionSize: sdk.NewInt(1000),
 				},
 			},
 		},

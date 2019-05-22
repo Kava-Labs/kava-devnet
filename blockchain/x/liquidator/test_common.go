@@ -93,12 +93,6 @@ func setupTestKeepers() (sdk.Context, keepers) {
 	// Create context
 	ctx := sdk.NewContext(ms, abci.Header{ChainID: "testchain"}, false, log.NewNopLogger())
 
-	// Setup all the state within the keepers (including genesis)
-	// TODO move out of this function
-	// auth genesis - requires fee keeper
-	cdp.InitGenesis(ctx, cdpKeeper, cdp.DefaultGenesisState())
-	InitGenesis(ctx, liquidatorKeeper, DefaultGenesisState())
-
 	return ctx, keepers{
 		paramsKeeper,
 		accountKeeper,

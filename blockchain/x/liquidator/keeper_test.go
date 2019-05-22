@@ -18,6 +18,7 @@ func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
 
 	cdp.InitGenesis(ctx, k.cdpKeeper, cdp.DefaultGenesisState())
+	InitGenesis(ctx, k.liquidatorKeeper, DefaultGenesisState())
 	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeed.GenesisState{Assets: []pricefeed.Asset{{"btc", "a description"}}})
 	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("8000.00"), i(999999999))
 	k.pricefeedKeeper.SetCurrentPrices(ctx)
@@ -33,18 +34,20 @@ func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {
 
 	// Check CDP
 	require.NoError(t, err)
-	_, found := k.cdpKeeper.GetCDP(ctx, addrs[0], "btc")
-	require.False(t, found)
-	// TODO check cdp values are corret
+	cdp, found := k.cdpKeeper.GetCDP(ctx, addrs[0], "btc")
+	require.True(t, found)
+	require.Equal(t, cdp.CollateralAmount, i(2)) // original amount - params.CollateralAuctionSize
+	require.Equal(t, cdp.Debt, i(10667)) // original debt scaled by amount of collateral removed
 	// Check auction exists
 	_, found = k.auctionKeeper.GetAuction(ctx, auctionID)
 	require.True(t, found)
-	// TODO check auction values are correct
+	// TODO check auction values are correct?
 }
 
 func TestKeeper_StartDebtAuction(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
+	InitGenesis(ctx, k.liquidatorKeeper, DefaultGenesisState())
 	initSDebt := SeizedDebt{i(2000), i(0)}
 	k.liquidatorKeeper.setSeizedDebt(ctx, initSDebt)
 
@@ -56,12 +59,13 @@ func TestKeeper_StartDebtAuction(t *testing.T) {
 	require.Equal(t,
 		SeizedDebt{
 			initSDebt.Total,
-			initSDebt.SentToAuction.Add(DebtAuctionSize),
+			initSDebt.SentToAuction.Add(k.liquidatorKeeper.GetParams(ctx).DebtAuctionSize),
 		},
 		k.liquidatorKeeper.GetSeizedDebt(ctx),
 	)
 	_, found := k.auctionKeeper.GetAuction(ctx, auctionID)
 	require.True(t, found)
+	// TODO check auction values are correct?
 }
 
 // func TestKeeper_StartSurplusAuction(t *testing.T) {
@@ -93,6 +97,7 @@ func TestKeeper_partialSeizeCDP(t *testing.T) {
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
 
 	cdp.InitGenesis(ctx, k.cdpKeeper, cdp.DefaultGenesisState())
+	InitGenesis(ctx, k.liquidatorKeeper, DefaultGenesisState())
 	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeed.GenesisState{Assets: []pricefeed.Asset{{"btc", "a description"}}})
 	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("8000.00"), i(999999999))
 	k.pricefeedKeeper.SetCurrentPrices(ctx)

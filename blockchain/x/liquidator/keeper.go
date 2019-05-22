@@ -29,12 +29,6 @@ func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace
 	}
 }
 
-var ( // TODO move into params, pick good defaults
-	CollateralAuctionSize = sdk.NewInt(1000) // known as Cat.ilk[n].lump in maker
-	DebtAuctionSize       = sdk.NewInt(1000) // known as Vow.sump in maker
-	SurplusAuctionSize    = sdk.NewInt(1000) // known as Voe.bump in maker
-)
-
 // SeizeAndStartCollateralAuction pulls collateral out of a CDP and sells it in an auction for stable coin. Excess collateral goes to the original CDP owner.
 // Known as Cat.bite in maker
 // result: stable coin is transferred to module account, collateral is transferred from module account to buyer, (and any excess collateral is transferred to original CDP owner)
@@ -42,11 +36,12 @@ func (k Keeper) SeizeAndStartCollateralAuction(ctx sdk.Context, owner sdk.AccAdd
 	// Get CDP
 	cdp, found := k.cdpKeeper.GetCDP(ctx, owner, collateralDenom)
 	if !found {
-		return 0, sdk.ErrInternal("")
+		return 0, sdk.ErrInternal("CDP not found")
 	}
 
 	// Calculate amount of collateral to sell in this auction
-	collateralToSell := sdk.MinInt(cdp.CollateralAmount, CollateralAuctionSize)
+	params := k.GetParams(ctx).GetCollateralParams(cdp.CollateralDenom)
+	collateralToSell := sdk.MinInt(cdp.CollateralAmount, params.AuctionSize)
 	// Calculate the corresponding maximum amount of stable coin to raise TODO test maths
 	stableToRaise := sdk.NewDecFromInt(collateralToSell).Quo(sdk.NewDecFromInt(cdp.CollateralAmount)).Mul(sdk.NewDecFromInt(cdp.Debt)).RoundInt()
 
@@ -78,22 +73,23 @@ func (k Keeper) StartDebtAuction(ctx sdk.Context) (auction.ID, sdk.Error) {
 	}
 
 	// check the seized debt is above a threshold
+	params := k.GetParams(ctx)
 	seizedDebt := k.GetSeizedDebt(ctx)
-	if seizedDebt.Available().LT(DebtAuctionSize) {
+	if seizedDebt.Available().LT(params.DebtAuctionSize) {
 		return 0, sdk.ErrInternal("not enough seized debt to start an auction")
 	}
 	// start reverse auction, selling minted gov coin for stable coin
 	auctionID, err := k.auctionKeeper.StartReverseAuction(
 		ctx,
 		k.cdpKeeper.GetLiquidatorAccountAddress(),
-		sdk.NewCoin(k.cdpKeeper.GetStableDenom(), DebtAuctionSize),
+		sdk.NewCoin(k.cdpKeeper.GetStableDenom(), params.DebtAuctionSize),
 		sdk.NewInt64Coin(k.cdpKeeper.GetGovDenom(), 2^255-1), // TODO is there a way to avoid potentially minting infinite gov coin?
 	)
 	if err != nil {
 		return 0, err
 	}
 	// Record amount of debt sent for auction. Debt can only be reduced in lock step with reducing stable coin
-	seizedDebt.SentToAuction = seizedDebt.SentToAuction.Add(DebtAuctionSize)
+	seizedDebt.SentToAuction = seizedDebt.SentToAuction.Add(params.DebtAuctionSize)
 	k.setSeizedDebt(ctx, seizedDebt)
 	return auctionID, nil
 }
