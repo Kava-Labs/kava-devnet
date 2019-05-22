@@ -124,9 +124,9 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 
 			// check for err
 			if tc.expectPass {
-				require.Nil(t, err, fmt.Sprint(err))
+				require.NoError(t, err, fmt.Sprint(err))
 			} else {
-				require.NotNil(t, err)
+				require.Error(t, err)
 			}
 			// get new state for verification
 			actualCDP, found := keeper.GetCDP(ctx, tc.args.owner, tc.args.collateralDenom)
@@ -166,7 +166,7 @@ func TestKeeper_SeizeCDP(t *testing.T) {
 	keeper.pricefeed.SetCurrentPrices(ctx)
 	// Create CDP
 	err := keeper.ModifyCDP(ctx, testAddr, collateral, i(10), i(5))
-	require.Nil(t, err)
+	require.NoError(t, err)
 	// Reduce price
 	keeper.pricefeed.SetPrice(
 		ctx, sdk.AccAddress{}, collateral,
@@ -178,7 +178,7 @@ func TestKeeper_SeizeCDP(t *testing.T) {
 	_, err = keeper.SeizeCDP(ctx, testAddr, collateral)
 
 	// Check
-	require.Nil(t, err)
+	require.NoError(t, err)
 	_, found := keeper.GetCDP(ctx, testAddr, collateral)
 	require.False(t, found)
 	cState, found := keeper.GetCollateralState(ctx, collateral)

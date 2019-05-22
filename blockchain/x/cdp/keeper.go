@@ -219,7 +219,7 @@ func (k Keeper) GetUnderCollateralizedCDPs(ctx sdk.Context, collateralDenom stri
 		} else {
 			break // break early because list is sorted
 		}
-}
+	}
 	return filteredCDPs, nil
 }
 

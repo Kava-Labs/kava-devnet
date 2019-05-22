@@ -18,7 +18,7 @@ func TestKeeper_AddSubtractGetCoins(t *testing.T) {
 	tests := []struct {
 		name          string
 		address       sdk.AccAddress
-		shouldAdd           bool
+		shouldAdd     bool
 		amount        sdk.Coins
 		expectedCoins sdk.Coins
 	}{
@@ -48,16 +48,18 @@ func TestKeeper_AddSubtractGetCoins(t *testing.T) {
 			keeper.setLiquidatorModuleAccount(ctx, LiquidatorModuleAccount{cs(c(StableDenom, 100))}) // set gov coin "balance" to zero
 
 			// perform the test action
+			var err sdk.Error
 			if tc.shouldAdd {
-				keeper.AddCoins(ctx, tc.address, tc.amount)
+				_, _, err = keeper.AddCoins(ctx, tc.address, tc.amount)
 			} else {
-				keeper.SubtractCoins(ctx, tc.address, tc.amount)
+				_, _, err = keeper.SubtractCoins(ctx, tc.address, tc.amount)
 			}
 
 			mapp.EndBlock(abci.RequestEndBlock{})
 			mapp.Commit()
 
 			// check balances are as expected
+			require.NoError(t, err)
 			require.Equal(t, tc.expectedCoins, keeper.GetCoins(ctx, tc.address))
 		})
 	}
