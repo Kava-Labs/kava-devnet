@@ -52,7 +52,7 @@ As this is a forward-reverse auction type, if the max stable coin is bid then bi
 
 func GetCmd_StartDebtAuction(cdc *codec.Codec) *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "mint", // TODO is this a reasonable name?
+		Use:   "mint",
 		Short: "start a debt auction, minting gov coin to cover debt",
 		Long:  "Start a reverse auction, selling off minted gov coin to raise a fixed amount of stable coin.",
 		Args:  cobra.NoArgs,

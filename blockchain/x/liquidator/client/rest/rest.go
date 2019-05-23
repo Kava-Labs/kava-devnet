@@ -24,7 +24,7 @@ func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec) 
 
 func queryDebtHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/liquidator/%s", liquidator.QueryGetOutstandingDebt), nil) // TODO should these functions have 'liquidator' passed in as arg, like queriers?
+		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/liquidator/%s", liquidator.QueryGetOutstandingDebt), nil)
 		if err != nil {
 			rest.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
