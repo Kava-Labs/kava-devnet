@@ -8,7 +8,8 @@ import (
 )
 
 type cdpKeeper interface {
-	SeizeCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, sdk.Error)
+	GetCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, bool)
+	PartialSeizeCDP(sdk.Context, sdk.AccAddress, string, sdk.Int, sdk.Int) sdk.Error
 	ReduceGlobalDebt(sdk.Context, sdk.Int) sdk.Error
 	GetStableDenom() string // TODO can this be removed somehow?
 	GetGovDenom() string
@@ -17,8 +18,8 @@ type cdpKeeper interface {
 
 type bankKeeper interface {
 	GetCoins(sdk.Context, sdk.AccAddress) sdk.Coins
-	AddCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error)
-	SubtractCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error)
+	AddCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Error)
+	SubtractCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Error)
 }
 
 type auctionKeeper interface {

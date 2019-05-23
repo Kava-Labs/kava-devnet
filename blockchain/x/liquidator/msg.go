@@ -10,9 +10,8 @@ Design options and problems:
 	- senders have to pay fees
 	- these msgs cannot be bundled into a tx with a PlaceBid msg because PlaceBid requires an auction ID
  - msgs that start auctions and place an initial bid
-	- couples two processes that may need to be handled separately
+	- place bid can fail, leaving auction without bids which is similar to first case
  - no msgs, auctions started automatically
-	- not clear how this should be done
 	- running this as an endblocker adds complexity and potential vulnerabilities
 */
 
@@ -42,7 +41,7 @@ func (msg MsgSeizeAndStartCollateralAuction) ValidateBasic() sdk.Error {
 
 // GetSignBytes gets the canonical byte representation of the Msg.
 func (msg MsgSeizeAndStartCollateralAuction) GetSignBytes() []byte {
-	bz := msgCdc.MustMarshalJSON(msg)
+	bz := moduleCdc.MustMarshalJSON(msg)
 	return sdk.MustSortJSON(bz)
 }
 
@@ -64,23 +63,24 @@ func (msg MsgStartDebtAuction) ValidateBasic() sdk.Error {
 	return nil
 }
 func (msg MsgStartDebtAuction) GetSignBytes() []byte {
-	return sdk.MustSortJSON(msgCdc.MustMarshalJSON(msg))
+	return sdk.MustSortJSON(moduleCdc.MustMarshalJSON(msg))
 }
 func (msg MsgStartDebtAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
 
-type MsgStartSurplusAuction struct {
-	Sender sdk.AccAddress // only needed to pay the tx fees
-}
+// With no stability and liquidation fees, surplus auctions can never be run.
+// type MsgStartSurplusAuction struct {
+// 	Sender sdk.AccAddress // only needed to pay the tx fees
+// }
 
-func (msg MsgStartSurplusAuction) Route() string { return "liquidator" }
-func (msg MsgStartSurplusAuction) Type() string  { return "start_surplus_auction" } // TODO snake case?
-func (msg MsgStartSurplusAuction) ValidateBasic() sdk.Error {
-	if msg.Sender.Empty() {
-		return sdk.ErrInternal("invalid (empty) sender address")
-	}
-	return nil
-}
-func (msg MsgStartSurplusAuction) GetSignBytes() []byte {
-	return sdk.MustSortJSON(msgCdc.MustMarshalJSON(msg))
-}
-func (msg MsgStartSurplusAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
+// func (msg MsgStartSurplusAuction) Route() string { return "liquidator" }
+// func (msg MsgStartSurplusAuction) Type() string  { return "start_surplus_auction" } // TODO snake case?
+// func (msg MsgStartSurplusAuction) ValidateBasic() sdk.Error {
+// 	if msg.Sender.Empty() {
+// 		return sdk.ErrInternal("invalid (empty) sender address")
+// 	}
+// 	return nil
+// }
+// func (msg MsgStartSurplusAuction) GetSignBytes() []byte {
+// 	return sdk.MustSortJSON(msgCdc.MustMarshalJSON(msg))
+// }
+// func (msg MsgStartSurplusAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }

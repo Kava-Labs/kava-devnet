@@ -57,10 +57,10 @@ func setupTestKeepers() (sdk.Context, keepers) {
 	}
 
 	// Create Codec
-	cdc := MakeTestCodec()
+	cdc := makeTestCodec()
 
 	// Create Keepers
-	paramsKeeper := params.NewKeeper(cdc, keyParams, tkeyParams)
+	paramsKeeper := params.NewKeeper(cdc, keyParams, tkeyParams, params.DefaultCodespace)
 	accountKeeper := auth.NewAccountKeeper(
 		cdc,
 		keyAcc,
@@ -80,16 +80,18 @@ func setupTestKeepers() (sdk.Context, keepers) {
 		pricefeedKeeper,
 		bankKeeper,
 	)
-	auctionKeeper := auction.NewKeeper(cdc, cdpKeeper, keyAuction)                         // Note: cdp keeper stands in for bank keeper
-	liquidatorKeeper := NewKeeper(cdc, keyLiquidator, cdpKeeper, auctionKeeper, cdpKeeper) // Note: cdp keeper stands in for bank keeper
+	auctionKeeper := auction.NewKeeper(cdc, cdpKeeper, keyAuction) // Note: cdp keeper stands in for bank keeper
+	liquidatorKeeper := NewKeeper(
+		cdc,
+		keyLiquidator,
+		paramsKeeper.Subspace("liquidatorSubspace"),
+		cdpKeeper,
+		auctionKeeper,
+		cdpKeeper,
+	) // Note: cdp keeper stands in for bank keeper
 
 	// Create context
 	ctx := sdk.NewContext(ms, abci.Header{ChainID: "testchain"}, false, log.NewNopLogger())
-
-	// Setup all the state within the keepers (including genesis)
-	// TODO move out of this function
-	// auth genesis - requires fee keeper
-	cdp.InitGenesis(ctx, cdpKeeper, cdp.DefaultGenesisState())
 
 	return ctx, keepers{
 		paramsKeeper,
@@ -102,7 +104,7 @@ func setupTestKeepers() (sdk.Context, keepers) {
 	}
 }
 
-func MakeTestCodec() *codec.Codec {
+func makeTestCodec() *codec.Codec {
 	var cdc = codec.New()
 	auth.RegisterCodec(cdc)
 	bank.RegisterCodec(cdc)
