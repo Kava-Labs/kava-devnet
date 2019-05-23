@@ -4,13 +4,17 @@ import (
 	"github.com/cosmos/cosmos-sdk/codec"
 )
 
-var msgCdc = codec.New()
-
 // RegisterCodec registers concrete types on the Amino codec
 func RegisterCodec(cdc *codec.Codec) {
 	cdc.RegisterConcrete(MsgPostPrice{}, "pricefeed/MsgPostPrice", nil)
 }
 
+// generic sealed codec to be used throughout module
+var moduleCdc *codec.Codec
+
 func init() {
-	RegisterCodec(msgCdc)
+	cdc := codec.New()
+	RegisterCodec(cdc)
+	codec.RegisterCrypto(cdc)
+	moduleCdc = cdc.Seal()
 }

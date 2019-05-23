@@ -43,7 +43,7 @@ func (msg MsgPlaceBid) ValidateBasic() sdk.Error {
 
 // GetSignBytes gets the canonical byte representation of the Msg.
 func (msg MsgPlaceBid) GetSignBytes() []byte {
-	bz := msgCdc.MustMarshalJSON(msg)
+	bz := moduleCdc.MustMarshalJSON(msg)
 	return sdk.MustSortJSON(bz)
 }
 

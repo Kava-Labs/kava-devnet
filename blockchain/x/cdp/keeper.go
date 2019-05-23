@@ -112,17 +112,17 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	// change owner's coins (increase or decrease)
 	var err sdk.Error
 	if changeInCollateral.IsNegative() {
-		_, _, err = k.bank.AddCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(collateralDenom, changeInCollateral.Neg())))
+		_, err = k.bank.AddCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(collateralDenom, changeInCollateral.Neg())))
 	} else {
-		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(collateralDenom, changeInCollateral)))
+		_, err = k.bank.SubtractCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(collateralDenom, changeInCollateral)))
 	}
 	if err != nil {
 		panic(err) // this shouldn't happen because coin balance was checked earlier
 	}
 	if changeInDebt.IsNegative() {
-		_, _, err = k.bank.SubtractCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(StableDenom, changeInDebt.Neg())))
+		_, err = k.bank.SubtractCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(StableDenom, changeInDebt.Neg())))
 	} else {
-		_, _, err = k.bank.AddCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(StableDenom, changeInDebt)))
+		_, err = k.bank.AddCoins(ctx, owner, sdk.NewCoins(sdk.NewCoin(StableDenom, changeInDebt)))
 	}
 	if err != nil {
 		panic(err) // this shouldn't happen because coin balance was checked earlier
@@ -357,11 +357,11 @@ type LiquidatorModuleAccount struct {
 	Coins sdk.Coins // keeps track of seized collateral, surplus usdx, and mints/burns gov coins
 }
 
-func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error) {
+func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Error) {
 	// intercept module account
 	if address.Equals(LiquidatorAccountAddress) {
 		if !amount.IsValid() {
-			return nil, nil, sdk.ErrInvalidCoins(amount.String())
+			return nil, sdk.ErrInvalidCoins(amount.String())
 		}
 		// remove gov token from list
 		filteredCoins := stripGovCoin(amount)
@@ -369,22 +369,22 @@ func (k Keeper) AddCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coi
 		lma := k.getLiquidatorModuleAccount(ctx)
 		updatedCoins := lma.Coins.Add(filteredCoins)
 		if updatedCoins.IsAnyNegative() {
-			return amount, nil, sdk.ErrInsufficientCoins(fmt.Sprintf("insufficient account funds; %s < %s", lma.Coins, amount))
+			return amount, sdk.ErrInsufficientCoins(fmt.Sprintf("insufficient account funds; %s < %s", lma.Coins, amount))
 		}
 		lma.Coins = updatedCoins
 		k.setLiquidatorModuleAccount(ctx, lma)
-		return updatedCoins, sdk.Tags{}, nil // TODO add tags
+		return updatedCoins, nil
 	} else {
 		return k.bank.AddCoins(ctx, address, amount)
 	}
 }
 
 // TODO abstract stuff better
-func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error) {
+func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sdk.Coins) (sdk.Coins, sdk.Error) {
 	// intercept module account
 	if address.Equals(LiquidatorAccountAddress) {
 		if !amount.IsValid() {
-			return nil, nil, sdk.ErrInvalidCoins(amount.String())
+			return nil, sdk.ErrInvalidCoins(amount.String())
 		}
 		// remove gov token from list
 		filteredCoins := stripGovCoin(amount)
@@ -392,11 +392,11 @@ func (k Keeper) SubtractCoins(ctx sdk.Context, address sdk.AccAddress, amount sd
 		lma := k.getLiquidatorModuleAccount(ctx)
 		updatedCoins, isNegative := lma.Coins.SafeSub(filteredCoins)
 		if isNegative {
-			return amount, nil, sdk.ErrInsufficientCoins(fmt.Sprintf("insufficient account funds; %s < %s", lma.Coins, amount))
+			return amount, sdk.ErrInsufficientCoins(fmt.Sprintf("insufficient account funds; %s < %s", lma.Coins, amount))
 		}
 		lma.Coins = updatedCoins
 		k.setLiquidatorModuleAccount(ctx, lma)
-		return updatedCoins, sdk.Tags{}, nil // TODO add tags
+		return updatedCoins, nil
 	} else {
 		return k.bank.SubtractCoins(ctx, address, amount)
 	}
