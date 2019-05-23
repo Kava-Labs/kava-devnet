@@ -13,6 +13,7 @@ Notes
    However creating a byte sortable representation of a collateral ratio wasn't very easy so the simpler approach was chosen.
 
 TODO
+ - A shorter name for an under-collateralized CDP would shorten a lot of function names
  - remove fake bank keeper and setup a proper liquidator module account
  - what happens if a collateral type is removed from the list of allowed ones?
  - Should the values used to generate a key for a stored struct be in the struct?

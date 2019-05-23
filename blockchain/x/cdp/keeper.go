@@ -202,7 +202,7 @@ func (k Keeper) ReduceGlobalDebt(ctx sdk.Context, amount sdk.Int) sdk.Error {
 
 // GetUnderCollateralizedCDPs returns CDPs that will be below the liquidation ratio at the specified price.
 // It returns a slice, scoped to one collateral type, and sorted by collateral ratio
-func (k Keeper) GetUnderCollateralizedCDPs(ctx sdk.Context, collateralDenom string, price sdk.Dec) ([]CDP, sdk.Error) {
+func (k Keeper) GetUnderCollateralizedCDPs(ctx sdk.Context, collateralDenom string, price sdk.Dec) (CDPs, sdk.Error) {
 	// Get CDPs for the collateral type
 	params := k.GetParams(ctx)
 	if !params.IsCollateralPresent(collateralDenom) {
@@ -212,7 +212,7 @@ func (k Keeper) GetUnderCollateralizedCDPs(ctx sdk.Context, collateralDenom stri
 	// Sort by collateral ratio (collateral/debt)
 	sort.Sort(byCollateralRatio(cdps))
 	// Filter for CDPs that would be under-collateralized at the specified price
-	var filteredCDPs []CDP
+	var filteredCDPs CDPs
 	for _, cdp := range cdps {
 		if cdp.IsUnderCollateralized(price, params.GetCollateralParams(collateralDenom).LiquidationRatio) {
 			filteredCDPs = append(filteredCDPs, cdp)
@@ -288,13 +288,13 @@ func (k Keeper) deleteCDP(ctx sdk.Context, cdp CDP) { // TODO should this id the
 
 // GetCDP returns a list of all CDPs scoped to the specified collateral type.
 // Passing "" for the collateral type will return all CDPs. // TODO is there a better/safer way of doing this?
-func (k Keeper) GetCDPs(ctx sdk.Context, collateralDenom string) []CDP {
+func (k Keeper) GetCDPs(ctx sdk.Context, collateralDenom string) CDPs {
 	// Get an iterator over CDPs
 	store := ctx.KVStore(k.storeKey)
 	iter := sdk.KVStorePrefixIterator(store, k.getCDPKeyPrefix(collateralDenom))
 
 	// Decode CDPs into slice
-	var cdps []CDP
+	var cdps CDPs
 	for ; iter.Valid(); iter.Next() {
 		var cdp CDP
 		k.cdc.MustUnmarshalBinaryLengthPrefixed(iter.Value(), &cdp)

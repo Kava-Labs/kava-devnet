@@ -16,14 +16,6 @@ const (
 	QueryGetParams                  = "params"
 )
 
-// implement fmt.Stringer for CDP type
-func (cdp CDP) String() string {
-	return strings.TrimSpace(fmt.Sprintf(`Owner: %s
-CollateralType: %s
-CollateralAmount: %s
-Debt: %s`, cdp.Owner, cdp.CollateralDenom, cdp.CollateralAmount, cdp.Debt))
-}
-
 // QueryGetCdpResp response to a getcdpinfo query
 type QueryGetCdpResp []string
 
@@ -68,12 +60,15 @@ func queryGetCdp(ctx sdk.Context, path []string, req abci.RequestQuery, keeper K
 	return bz, nil
 }
 
+// TODO Can these structs be renamed or grouped together into something less confusing?
+type QueryCdpsParams struct {
+	CollateralDenom string // If this is "" then all CDPs will be returned
+}
+
 // queryGetCdps fetches all the CDPs, or all CDPS of a particular collateral type
 func queryGetCdps(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) ([]byte, sdk.Error) {
 	// Decode request
-	requestParams := struct {
-		CollateralDenom string // If this is "" then all CDPs will be returned
-	}{}
+	var requestParams QueryCdpsParams
 	err := keeper.cdc.UnmarshalJSON(req.Data, &requestParams)
 	if err != nil {
 		return nil, sdk.ErrInternal(fmt.Sprintf("failed to parse params: %s", err))
@@ -90,13 +85,15 @@ func queryGetCdps(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) ([]byte
 	return bz, nil
 }
 
+type QueryUnderCollateralizedCdpsParams struct {
+	CollateralDenom string
+	Price           sdk.Dec
+}
+
 // queryGetUnderCollateralizedCdps fetches all the CDPs (of a collateral type) that would be under the liquidation ratio at the specified price
 func queryGetUnderCollateralizedCdps(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) ([]byte, sdk.Error) {
 	// Decode request
-	requestParams := struct {
-		CollateralDenom string
-		Price           sdk.Dec
-	}{}
+	var requestParams QueryUnderCollateralizedCdpsParams
 	err := keeper.cdc.UnmarshalJSON(req.Data, &requestParams)
 	if err != nil {
 		return nil, sdk.ErrInternal(fmt.Sprintf("failed to parse params: %s", err))
@@ -117,6 +114,7 @@ func queryGetUnderCollateralizedCdps(ctx sdk.Context, req abci.RequestQuery, kee
 }
 
 // queryGetParams fetches the cdp module parameters
+// TODO does this need to exist? Can you use cliCtx.QueryStore instead?
 func queryGetParams(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) ([]byte, sdk.Error) {
 	// Get params
 	params := keeper.GetParams(ctx)

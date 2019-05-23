@@ -195,7 +195,7 @@ func TestKeeper_GetUnderCollateralizedCDPs(t *testing.T) {
 	ctx := mapp.BaseApp.NewContext(false, header)
 	// setup CDPs
 	_, addrs := mock.GeneratePrivKeyAddressPairs(2)
-	cdps := []CDP{
+	cdps := CDPs{
 		{addrs[0], "xrp", i(4000), i(5)},
 		{addrs[1], "xrp", i(4000), i(2000)},
 		{addrs[0], "btc", i(10), i(20)},
@@ -207,7 +207,7 @@ func TestKeeper_GetUnderCollateralizedCDPs(t *testing.T) {
 	underCollateralizedCDPs, err := keeper.GetUnderCollateralizedCDPs(ctx, "xrp", d("0.00000001"))
 	require.NoError(t, err)
 	require.Equal(t,
-		[]CDP{
+		CDPs{
 			{addrs[1], "xrp", i(4000), i(2000)},
 			{addrs[0], "xrp", i(4000), i(5)}},
 		underCollateralizedCDPs,
@@ -216,7 +216,7 @@ func TestKeeper_GetUnderCollateralizedCDPs(t *testing.T) {
 	underCollateralizedCDPs, err = keeper.GetUnderCollateralizedCDPs(ctx, "xrp", d("999999999.99"))
 	require.NoError(t, err)
 	require.Equal(t,
-		[]CDP(nil),
+		CDPs(nil),
 		underCollateralizedCDPs,
 	)
 	// Check unauthorized collateral denom returns error

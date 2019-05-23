@@ -1,6 +1,9 @@
 package cdp
 
 import (
+	"fmt"
+	"strings"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
@@ -19,8 +22,29 @@ func (cdp CDP) IsUnderCollateralized(price sdk.Dec, liquidationRatio sdk.Dec) bo
 	return collateralValue.LT(minCollateralValue) // TODO LT or LTE?
 }
 
+func (cdp CDP) String() string {
+	return strings.TrimSpace(fmt.Sprintf(`CDP:
+  Owner:      %s
+  Collateral: %s
+  Debt:       %s`,
+		cdp.Owner,
+		sdk.NewCoin(cdp.CollateralDenom, cdp.CollateralAmount),
+		sdk.NewCoin(StableDenom, cdp.Debt),
+	))
+}
+
+type CDPs []CDP
+
+func (cdps CDPs) String() string {
+	out := ""
+	for _, cdp := range cdps {
+		out += cdp.String() + "\n"
+	}
+	return out
+}
+
 // byCollateralRatio is used to sort CDPs
-type byCollateralRatio []CDP
+type byCollateralRatio CDPs
 
 func (cdps byCollateralRatio) Len() int      { return len(cdps) }
 func (cdps byCollateralRatio) Swap(i, j int) { cdps[i], cdps[j] = cdps[j], cdps[i] }
