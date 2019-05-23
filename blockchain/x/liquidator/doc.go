@@ -12,6 +12,7 @@ Notes
 	- liquidator needs get access to stable and gov denoms from the cdp module
 
 TODO
+ - Is returning unsold collateral to the CDP owner rather than the CDP a problem? It could prevent the CDP from becoming safe again.
  - Add some kind of more complete test
  - Add constants for the module and route names
  - tags

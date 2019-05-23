@@ -15,8 +15,12 @@ func GetCmd_SeizeAndStartCollateralAuction(cdc *codec.Codec) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "seize [cdp-owner] [collateral-denom]",
 		Short: "seize funds from a CDP and send to auction",
-		Long:  "Seize a fixed amount of collateral and debt from a CDP and start a 'forward-reverse' auction with the collateral to cover the debt.",
-		Args:  cobra.ExactArgs(2),
+		Long: `Seize a fixed amount of collateral and debt from a CDP then start an auction with the collateral.
+The amount of collateral seized is given by the 'AuctionSize' module parameter or, if there isn't enough collateral in the CDP, all the CDP's collateral is seized.
+Debt is seized in proportion to the collateral seized so that the CDP stays at the same collateral to debt ratio.
+A 'forward-reverse' auction is started selling the seized collateral for some stable coin, with a maximum bid of stable coin set to equal the debt seized.
+As this is a forward-reverse auction type, if the max stable coin is bid then bidding continues by bidding down the amount of collateral taken by the bidder. At the end, extra collateral is returned to the original CDP owner.`,
+		Args: cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// Setup
 			txBldr := authtxb.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
