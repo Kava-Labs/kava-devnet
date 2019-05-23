@@ -182,9 +182,9 @@ func TestKeeper_PartialSeizeCDP(t *testing.T) {
 	require.NoError(t, err)
 	_, found := keeper.GetCDP(ctx, testAddr, collateral)
 	require.False(t, found)
-	cState, found := keeper.GetCollateralState(ctx, collateral)
+	collateralState, found := keeper.GetCollateralState(ctx, collateral)
 	require.True(t, found)
-	require.Equal(t, sdk.ZeroInt(), cState.TotalDebt)
+	require.Equal(t, sdk.ZeroInt(), collateralState.TotalDebt)
 }
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP
@@ -232,13 +232,13 @@ func TestKeeper_GetSetCollateralState(t *testing.T) {
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
-	cState := CollateralState{"xrp", i(15400)}
+	collateralState := CollateralState{"xrp", i(15400)}
 
 	// write and read from store
-	keeper.setCollateralState(ctx, cState)
-	readCState, found := keeper.GetCollateralState(ctx, cState.Denom)
+	keeper.setCollateralState(ctx, collateralState)
+	readCState, found := keeper.GetCollateralState(ctx, collateralState.Denom)
 
 	// check before and after match
-	require.Equal(t, cState, readCState)
+	require.Equal(t, collateralState, readCState)
 	require.True(t, found)
 }

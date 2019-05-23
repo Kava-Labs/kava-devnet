@@ -95,15 +95,15 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	}
 
 	// Add/Subtract from collateral debt limit
-	cState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
+	collateralState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
 	if !found {
-		cState = CollateralState{Denom: cdp.CollateralDenom, TotalDebt: sdk.ZeroInt()} // Already checked that this denom is authorized, so ok to create new CollateralState
+		collateralState = CollateralState{Denom: cdp.CollateralDenom, TotalDebt: sdk.ZeroInt()} // Already checked that this denom is authorized, so ok to create new CollateralState
 	}
-	cState.TotalDebt = cState.TotalDebt.Add(changeInDebt)
-	if cState.TotalDebt.IsNegative() {
+	collateralState.TotalDebt = collateralState.TotalDebt.Add(changeInDebt)
+	if collateralState.TotalDebt.IsNegative() {
 		return sdk.ErrInternal("total debt for this collateral type can't be negative") // This should never happen if debt per CDP can't be negative
 	}
-	if cState.TotalDebt.GT(p.GetCollateralParams(cdp.CollateralDenom).DebtLimit) {
+	if collateralState.TotalDebt.GT(p.GetCollateralParams(cdp.CollateralDenom).DebtLimit) {
 		return sdk.ErrInternal("change to CDP would put the system over the debt limit for this collateral type")
 	}
 
@@ -135,7 +135,7 @@ func (k Keeper) ModifyCDP(ctx sdk.Context, owner sdk.AccAddress, collateralDenom
 	}
 	// set total debts
 	k.setGlobalDebt(ctx, gDebt)
-	k.setCollateralState(ctx, cState)
+	k.setCollateralState(ctx, collateralState)
 
 	return nil
 }
@@ -184,12 +184,12 @@ func (k Keeper) PartialSeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collatera
 	}
 
 	// Update debt per collateral type
-	cState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
+	collateralState, found := k.GetCollateralState(ctx, cdp.CollateralDenom)
 	if !found {
 		return sdk.ErrInternal("could not find collateral state")
 	}
-	cState.TotalDebt = cState.TotalDebt.Sub(debtToSeize)
-	if cState.TotalDebt.IsNegative() {
+	collateralState.TotalDebt = collateralState.TotalDebt.Sub(debtToSeize)
+	if collateralState.TotalDebt.IsNegative() {
 		return sdk.ErrInternal("Total debt per collateral type is negative.") // This should not happen given the checks on the CDP.
 	}
 
@@ -202,7 +202,7 @@ func (k Keeper) PartialSeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collatera
 	} else {
 		k.setCDP(ctx, cdp)
 	}
-	k.setCollateralState(ctx, cState)
+	k.setCollateralState(ctx, collateralState)
 	return nil
 }
 
@@ -322,9 +322,9 @@ func (k Keeper) GetCollateralState(ctx sdk.Context, collateralDenom string) (Col
 	if bz == nil {
 		return CollateralState{}, false
 	}
-	var cState CollateralState
-	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &cState)
-	return cState, true
+	var collateralState CollateralState
+	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &collateralState)
+	return collateralState, true
 }
 func (k Keeper) setCollateralState(ctx sdk.Context, collateralstate CollateralState) {
 	// get store
