@@ -17,7 +17,9 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, genState GenesisState) {
 
 // DefaultGenesisState returns a default genesis state
 func DefaultGenesisState() GenesisState {
-	return GenesisState{}
+	return GenesisState{
+		[]Asset{{"btc", "a description"}, {"xrp", "the standard"}},
+		[]Oracle{}}
 }
 
 // ValidateGenesis performs basic validation of genesis data returning an
