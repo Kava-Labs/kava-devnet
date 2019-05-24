@@ -15,21 +15,6 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-type modifyCdpReq struct {
-	BaseReq         rest.BaseReq `json:"base_req"`
-	OwnerAddr       string       `json:"owner_addr"`
-	CollateralType  string       `json:"collateral_type"`
-	CollateralDelta string       `json:"collateral_delta"`
-	StableDelta     string       `json:"stable_delta"`
-}
-
-const (
-	restOwner           = "owner"
-	restCollateralType  = "collateral"
-	restCollateralDelta = "collateral_delta"
-	restStableDelta     = "stable_delta"
-)
-
 /*
 API Design:
 
@@ -45,14 +30,12 @@ Get the module params, including authorized collateral denoms.
 
 // RegisterRoutes - Central function to define routes that get registered by the main application
 func RegisterRoutes(cliCtx context.CLIContext, r *mux.Router, cdc *codec.Codec) {
-	//r.HandleFunc(fmt.Sprintf("/cdp/getcdpinfo/{%s}/{%s}", restOwner, restCollateralType), queryCdpHandlerFn(cdc, cliCtx)).Methods("GET")
-	//r.HandleFunc(fmt.Sprintf("/cdp/modify/{%s}/{%s}/{%s}/{%s}", restOwner, restCollateralType, restCollateralDelta, restStableDelta), modifyCdpHandlerFn(cdc, cliCtx)).Methods("PUT")
 	r.HandleFunc("/cdps", getCdpsHandlerFn(cdc, cliCtx)).Methods("GET")
 	r.HandleFunc("/cdps", modifyCdpHandlerFn(cdc, cliCtx)).Methods("PUT")
 	r.HandleFunc("/cdps/params", getParamsHandlerFn(cdc, cliCtx)).Methods("GET")
 }
 
-const ( // TODO inline these?
+const (
 	RestOwner                 = "owner"
 	RestCollateralDenom       = "collateralDenom"
 	RestUnderCollateralizedAt = "underCollateralizedAt"
@@ -88,7 +71,7 @@ func getCdpsHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerF
 				rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
 				return
 			}
-			querierParams.Price = price
+			querierParams.UnderCollateralizedAt = price
 		}
 
 		querierParamsBz, err := cdc.MarshalJSON(querierParams)
@@ -109,35 +92,6 @@ func getCdpsHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerF
 
 	}
 }
-
-// TODO remove? superseded by get CDPs cmd
-// func queryCdpHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.HandlerFunc {
-// 	return func(w http.ResponseWriter, r *http.Request) {
-// 		vars := mux.Vars(r)
-// 		bechOwnerAddr := vars[restOwner]
-// 		strCollateralType := vars[restCollateralType]
-
-// 		ownerAddr, err := sdk.AccAddressFromBech32(bechOwnerAddr)
-// 		if err != nil {
-// 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
-// 			return
-// 		}
-
-// 		if len(strCollateralType) == 0 {
-// 			err := errors.New("collateralType required but not specified")
-// 			rest.WriteErrorResponse(w, http.StatusBadRequest, err.Error())
-// 			return
-// 		}
-// 		res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/cdp/getcdpinfo/%s/%s", ownerAddr, strCollateralType), nil)
-// 		if err != nil {
-// 			rest.WriteErrorResponse(w, http.StatusNotFound, err.Error())
-// 			return
-// 		}
-
-// 		rest.PostProcessResponse(w, cdc, res, cliCtx.Indent)
-
-// 	}
-// }
 
 type ModifyCdpRequestBody struct {
 	BaseReq rest.BaseReq `json:"base_req"`
@@ -172,8 +126,8 @@ func modifyCdpHandlerFn(cdc *codec.Codec, cliCtx context.CLIContext) http.Handle
 			return
 		}
 		var cdps cdp.CDPs
-		cdc.MustUnmarshalJSON(res, &cdps) // TODO use non panicy version
-		if len(cdps) != 1 {               // either CDP doesn't exist?? or some weird error
+		err = cdc.UnmarshalJSON(res, &cdps)
+		if len(cdps) != 1 || err != nil {
 			rest.WriteErrorResponse(w, http.StatusInternalServerError, err.Error())
 			return
 		}
