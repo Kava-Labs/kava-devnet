@@ -9,11 +9,11 @@ import (
 
 // CDP is the state of a single Collateralized Debt Position.
 type CDP struct {
-	//ID               []byte       // removing IDs for now to make things simpler
-	Owner            sdk.AccAddress // Account that authorizes changes to the CDP
-	CollateralDenom  string         // Type of collateral stored in this CDP
-	CollateralAmount sdk.Int        // Amount of collateral stored in this CDP
-	Debt             sdk.Int        // Amount of stable coin drawn from this CDP
+	//ID             []byte                                    // removing IDs for now to make things simpler
+	Owner            sdk.AccAddress `json:"owner"`             // Account that authorizes changes to the CDP
+	CollateralDenom  string         `json:"collateral_denom"`  // Type of collateral stored in this CDP
+	CollateralAmount sdk.Int        `json:"collateral_amount"` // Amount of collateral stored in this CDP
+	Debt             sdk.Int        `json:"debt"`              // Amount of stable coin drawn from this CDP
 }
 
 func (cdp CDP) IsUnderCollateralized(price sdk.Dec, liquidationRatio sdk.Dec) bool {
