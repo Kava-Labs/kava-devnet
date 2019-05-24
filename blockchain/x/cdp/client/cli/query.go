@@ -14,50 +14,69 @@ import (
 // GetCmd_GetCdp queries the latest info about a particular cdp
 func GetCmd_GetCdp(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
-		Use:   "getcdpinfo [ownerAddress] [collateralType]",
+		Use:   "cdp [ownerAddress] [collateralType]",
 		Short: "get info about a cdp",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			ownerAddress := args[0]
-			collateralType := args[1]
-			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/getcdpinfo/%s/%s", queryRoute, ownerAddress, collateralType), nil)
+
+			// Prepare params for querier
+			ownerAddress, err := sdk.AccAddressFromBech32(args[0])
 			if err != nil {
-				fmt.Printf("error when getting cdp info - %s", err)
-				fmt.Printf("could not get current cdp info - %s %s \n", string(ownerAddress), string(collateralType))
-				return nil
+				return err
 			}
-			var out cdp.CDP
-			cdc.MustUnmarshalJSON(res, &out)
-			return cliCtx.PrintOutput(out)
-		},
-	}
-}
-
-func GetCmd_GetCdps(storeKey string, cdc *codec.Codec) *cobra.Command {
-	return &cobra.Command{
-		Use:   "cdps [collateralType]",
-		Short: "get info about many cdps",
-		Long:  "Get all CDPS or specify a collateral type to get only CDPs with that collateral type.",
-		Args:  cobra.MaximumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc)
-
-			// prepare params for querier
-			denom := args[0] // TODO will this fail if there are no args?
-			bz, err := cdc.MarshalJSON(cdp.QueryCdpsParams{CollateralDenom: denom})
+			collateralType := args[1] // TODO validation?
+			bz, err := cdc.MarshalJSON(cdp.QueryCdpsParams{
+				Owner:           ownerAddress,
+				CollateralDenom: collateralType,
+			})
 			if err != nil {
 				return err
 			}
 
-			// query
-			route := fmt.Sprintf("custom/%s/%s", storeKey, cdp.QueryGetCdps)
+			// Query
+			route := fmt.Sprintf("custom/%s/%s", queryRoute, cdp.QueryGetCdps)
+			res, err := cliCtx.QueryWithData(route, bz)
+			if err != nil {
+				fmt.Printf("error when getting cdp info - %s", err)
+				fmt.Printf("could not get current cdp info - %s %s \n", string(ownerAddress), string(collateralType))
+				return err
+			}
+
+			// Decode and print results
+			var cdps cdp.CDPs
+			cdc.MustUnmarshalJSON(res, &cdps)
+			if len(cdps) != 1 {
+				panic("Unexpected number of CDPs returned from querier. This shouldn't happen.")
+			}
+			return cliCtx.PrintOutput(cdps[0])
+		},
+	}
+}
+
+func GetCmd_GetCdps(queryRoute string, cdc *codec.Codec) *cobra.Command {
+	return &cobra.Command{
+		Use:   "cdps [collateralType]",
+		Short: "get info about many cdps",
+		Long:  "Get all CDPs or specify a collateral type to get only CDPs with that collateral type.",
+		Args:  cobra.MaximumNArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cliCtx := context.NewCLIContext().WithCodec(cdc)
+
+			// Prepare params for querier
+			bz, err := cdc.MarshalJSON(cdp.QueryCdpsParams{CollateralDenom: args[0]}) // denom="" returns all CDPs // TODO will this fail if there are no args?
+			if err != nil {
+				return err
+			}
+
+			// Query
+			route := fmt.Sprintf("custom/%s/%s", queryRoute, cdp.QueryGetCdps)
 			res, err := cliCtx.QueryWithData(route, bz)
 			if err != nil {
 				return err
 			}
 
-			// decode and print results
+			// Decode and print results
 			var out cdp.CDPs
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
@@ -65,7 +84,7 @@ func GetCmd_GetCdps(storeKey string, cdc *codec.Codec) *cobra.Command {
 	}
 }
 
-func GetCmd_GetUnderCollateralizedCdps(storeKey string, cdc *codec.Codec) *cobra.Command {
+func GetCmd_GetUnderCollateralizedCdps(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
 		Use:   "bad-cdps [collateralType] [price]",
 		Short: "get under collateralized CDPs",
@@ -74,27 +93,27 @@ func GetCmd_GetUnderCollateralizedCdps(storeKey string, cdc *codec.Codec) *cobra
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
 
-			// prepare params for querier
+			// Prepare params for querier
 			price, errSdk := sdk.NewDecFromStr(args[1])
 			if errSdk != nil {
 				return fmt.Errorf(errSdk.Error()) // TODO check this returns useful output
 			}
-			bz, err := cdc.MarshalJSON(cdp.QueryUnderCollateralizedCdpsParams{
-				CollateralDenom: args[0],
-				Price:           price,
+			bz, err := cdc.MarshalJSON(cdp.QueryCdpsParams{
+				CollateralDenom:       args[0],
+				UnderCollateralizedAt: price,
 			})
 			if err != nil {
 				return err
 			}
 
-			// query
-			route := fmt.Sprintf("custom/%s/%s", storeKey, cdp.QueryGetUnderCollateralizedCdps)
+			// Query
+			route := fmt.Sprintf("custom/%s/%s", queryRoute, cdp.QueryGetCdps)
 			res, err := cliCtx.QueryWithData(route, bz)
 			if err != nil {
 				return err
 			}
 
-			// decode and print results
+			// Decode and print results
 			var out cdp.CDPs
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
@@ -102,7 +121,7 @@ func GetCmd_GetUnderCollateralizedCdps(storeKey string, cdc *codec.Codec) *cobra
 	}
 }
 
-func GetCmd_GetParams(storeKey string, cdc *codec.Codec) *cobra.Command {
+func GetCmd_GetParams(queryRoute string, cdc *codec.Codec) *cobra.Command {
 	return &cobra.Command{
 		Use:   "params",
 		Short: "get the cdp module parameters",
@@ -111,14 +130,14 @@ func GetCmd_GetParams(storeKey string, cdc *codec.Codec) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
 
-			// query
-			route := fmt.Sprintf("custom/%s/%s", storeKey, cdp.QueryGetParams)
+			// Query
+			route := fmt.Sprintf("custom/%s/%s", queryRoute, cdp.QueryGetParams)
 			res, err := cliCtx.QueryWithData(route, nil) // TODO use cliCtx.QueryStore?
 			if err != nil {
 				return err
 			}
 
-			// decode and print results
+			// Decode and print results
 			var out cdp.CdpModuleParams
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
