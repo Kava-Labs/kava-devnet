@@ -44,7 +44,7 @@ As this is a forward-reverse auction type, if the max stable coin is bid then bi
 				CollateralDenom: denom,
 			}}
 			// TODO print out results like auction ID?
-			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, msgs, false)
+			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, msgs)
 		},
 	}
 	return cmd
@@ -68,7 +68,7 @@ func GetCmd_StartDebtAuction(cdc *codec.Codec) *cobra.Command {
 				Sender: sender,
 			}}
 			// TODO print out results like auction ID?
-			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, msgs, false)
+			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, msgs)
 		},
 	}
 	return cmd
