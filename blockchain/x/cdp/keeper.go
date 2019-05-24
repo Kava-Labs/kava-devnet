@@ -12,7 +12,7 @@ import (
 
 // StableDenom asset code of the dollar-denominated debt coin
 const StableDenom = "usdx" // TODO allow to be changed
-// GovDenom asset code of the goverance coin
+// GovDenom asset code of the governance coin
 const GovDenom = "xrs"
 
 // Keeper cdp Keeper
@@ -200,29 +200,6 @@ func (k Keeper) ReduceGlobalDebt(ctx sdk.Context, amount sdk.Int) sdk.Error {
 	return nil
 }
 
-// GetUnderCollateralizedCDPs returns CDPs that will be below the liquidation ratio at the specified price.
-// It returns a slice, scoped to one collateral type, and sorted by collateral ratio
-func (k Keeper) GetUnderCollateralizedCDPs(ctx sdk.Context, collateralDenom string, price sdk.Dec) (CDPs, sdk.Error) {
-	// Get CDPs for the collateral type
-	params := k.GetParams(ctx)
-	if !params.IsCollateralPresent(collateralDenom) {
-		return nil, sdk.ErrInternal("collateral denom not authorised")
-	}
-	cdps := k.GetCDPs(ctx, collateralDenom)
-	// Sort by collateral ratio (collateral/debt)
-	sort.Sort(byCollateralRatio(cdps))
-	// Filter for CDPs that would be under-collateralized at the specified price
-	var filteredCDPs CDPs
-	for _, cdp := range cdps {
-		if cdp.IsUnderCollateralized(price, params.GetCollateralParams(collateralDenom).LiquidationRatio) {
-			filteredCDPs = append(filteredCDPs, cdp)
-		} else {
-			break // break early because list is sorted
-		}
-	}
-	return filteredCDPs, nil
-}
-
 func (k Keeper) GetStableDenom() string { return StableDenom }
 func (k Keeper) GetGovDenom() string    { return GovDenom }
 
@@ -286,12 +263,21 @@ func (k Keeper) deleteCDP(ctx sdk.Context, cdp CDP) { // TODO should this id the
 	store.Delete(k.getCDPKey(cdp.Owner, cdp.CollateralDenom))
 }
 
-// GetCDP returns a list of all CDPs scoped to the specified collateral type.
-// Passing "" for the collateral type will return all CDPs. // TODO is there a better/safer way of doing this?
-func (k Keeper) GetCDPs(ctx sdk.Context, collateralDenom string) CDPs {
+// GetCDPs returns all CDPs, optionally filtered by collateral type and liquidation price.
+// `price` filters for CDPs that will be below the liquidation ratio when the collateral is at that specified price.
+func (k Keeper) GetCDPs(ctx sdk.Context, collateralDenom string, price sdk.Dec) (CDPs, sdk.Error) {
+	// Validate inputs
+	params := k.GetParams(ctx)
+	if len(collateralDenom) != 0 && !params.IsCollateralPresent(collateralDenom) {
+		return nil, sdk.ErrInternal("collateral denom not authorized")
+	}
+	if len(collateralDenom) == 0 && !(price.IsNil() || price.IsNegative()) {
+		return nil, sdk.ErrInternal("cannot specify price without collateral denom")
+	}
+
 	// Get an iterator over CDPs
 	store := ctx.KVStore(k.storeKey)
-	iter := sdk.KVStorePrefixIterator(store, k.getCDPKeyPrefix(collateralDenom))
+	iter := sdk.KVStorePrefixIterator(store, k.getCDPKeyPrefix(collateralDenom)) // could be all CDPs is collateralDenom is ""
 
 	// Decode CDPs into slice
 	var cdps CDPs
@@ -300,7 +286,25 @@ func (k Keeper) GetCDPs(ctx sdk.Context, collateralDenom string) CDPs {
 		k.cdc.MustUnmarshalBinaryLengthPrefixed(iter.Value(), &cdp)
 		cdps = append(cdps, cdp)
 	}
-	return cdps
+
+	// Sort by collateral ratio (collateral/debt)
+	sort.Sort(byCollateralRatio(cdps)) // TODO this doesn't make much sense across different collateral types
+
+	// Filter for CDPs that would be under-collateralized at the specified price
+	// If price is nil or -ve, skip the filtering as it would return all CDPs anyway
+	if !price.IsNil() && !price.IsNegative() {
+		var filteredCDPs CDPs
+		for _, cdp := range cdps {
+			if cdp.IsUnderCollateralized(price, params.GetCollateralParams(collateralDenom).LiquidationRatio) {
+				filteredCDPs = append(filteredCDPs, cdp)
+			} else {
+				break // break early because list is sorted
+			}
+		}
+		cdps = filteredCDPs
+	}
+
+	return cdps, nil
 }
 
 var globalDebtKey = []byte("globalDebt")
