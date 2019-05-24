@@ -2,7 +2,6 @@ package cdp
 
 import (
 	"fmt"
-	"strings"
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -10,29 +9,15 @@ import (
 )
 
 const (
-	QueryGetCdp                     = "cdp"
-	QueryGetCdps                    = "cdps"
-	QueryGetUnderCollateralizedCdps = "under-collateralized-cdps"
-	QueryGetParams                  = "params"
+	QueryGetCdps   = "cdps"
+	QueryGetParams = "params"
 )
-
-// QueryGetCdpResp response to a getcdpinfo query
-type QueryGetCdpResp []string
-
-// implement fmt.Stringer for QueryGetCdpResp type
-func (result QueryGetCdpResp) String() string {
-	return strings.Join(result[:], "\n")
-}
 
 func NewQuerier(keeper Keeper) sdk.Querier {
 	return func(ctx sdk.Context, path []string, req abci.RequestQuery) (res []byte, err sdk.Error) {
 		switch path[0] {
-		case QueryGetCdp:
-			return queryGetCdp(ctx, path[1:], req, keeper)
 		case QueryGetCdps:
 			return queryGetCdps(ctx, req, keeper)
-		case QueryGetUnderCollateralizedCdps:
-			return queryGetUnderCollateralizedCdps(ctx, req, keeper)
 		case QueryGetParams:
 			return queryGetParams(ctx, req, keeper)
 		default:
@@ -41,31 +26,14 @@ func NewQuerier(keeper Keeper) sdk.Querier {
 	}
 }
 
-// queryGetCdp fetches a single CDP
-func queryGetCdp(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
-	ownerAddress := path[0]
-	collateralDenom := path[1]
-	addr, err2 := sdk.AccAddressFromBech32(ownerAddress)
-	if err2 != nil {
-		return []byte{}, sdk.ErrUnknownRequest("invalid address")
-	}
-	cdp, found := keeper.GetCDP(ctx, addr, collateralDenom)
-	if !found {
-		return []byte{}, sdk.ErrUnknownRequest("cdp not found")
-	}
-	bz, err3 := codec.MarshalJSONIndent(keeper.cdc, cdp)
-	if err3 != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err3.Error()))
-	}
-	return bz, nil
-}
-
-// TODO Can these structs be renamed or grouped together into something less confusing?
 type QueryCdpsParams struct {
-	CollateralDenom string // If this is "" then all CDPs will be returned
+	CollateralDenom       string         // get CDPs with this collateral denom
+	Owner                 sdk.AccAddress // get CDPs belonging to this owner
+	UnderCollateralizedAt sdk.Dec        // get CDPs that will be below the liquidation ratio when the collateral is at this price.
 }
 
-// queryGetCdps fetches all the CDPs, or all CDPS of a particular collateral type
+// queryGetCdps fetches CDPs, optionally filtering by any of the query params (in QueryCdpsParams).
+// While CDPs do not have an ID, this method can be used to get one CDP by specifying the collateral and owner.
 func queryGetCdps(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) ([]byte, sdk.Error) {
 	// Decode request
 	var requestParams QueryCdpsParams
@@ -75,40 +43,33 @@ func queryGetCdps(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) ([]byte
 	}
 
 	// Get CDPs
-	cdps := keeper.GetCDPs(ctx, requestParams.CollateralDenom)
+	var cdps CDPs
+	if len(requestParams.Owner) != 0 {
+		if len(requestParams.CollateralDenom) != 0 {
+			// owner and collateral specified - get a single CDP
+			cdp, found := keeper.GetCDP(ctx, requestParams.Owner, requestParams.CollateralDenom)
+			if !found {
+				cdp = CDP{Owner: requestParams.Owner, CollateralDenom: requestParams.CollateralDenom, CollateralAmount: sdk.ZeroInt(), Debt: sdk.ZeroInt()}
+			}
+			cdps = CDPs{cdp}
+		} else {
+			// owner, but no collateral specified - get all CDPs for one address
+			return nil, sdk.ErrInternal("getting all CDPs belonging to one owner not implemented")
+		}
+	} else {
+		// owner not specified -- get all CDPs or all CDPs of one collateral type, optionally filtered by price
+		var errSdk sdk.Error // := doesn't work here
+		cdps, errSdk = keeper.GetCDPs(ctx, requestParams.CollateralDenom, requestParams.UnderCollateralizedAt)
+		if errSdk != nil {
+			return nil, errSdk
+		}
+
+	}
 
 	// Encode results
 	bz, err := codec.MarshalJSONIndent(keeper.cdc, cdps)
 	if err != nil {
 		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err.Error()))
-	}
-	return bz, nil
-}
-
-type QueryUnderCollateralizedCdpsParams struct {
-	CollateralDenom string
-	Price           sdk.Dec
-}
-
-// queryGetUnderCollateralizedCdps fetches all the CDPs (of a collateral type) that would be under the liquidation ratio at the specified price
-func queryGetUnderCollateralizedCdps(ctx sdk.Context, req abci.RequestQuery, keeper Keeper) ([]byte, sdk.Error) {
-	// Decode request
-	var requestParams QueryUnderCollateralizedCdpsParams
-	err := keeper.cdc.UnmarshalJSON(req.Data, &requestParams)
-	if err != nil {
-		return nil, sdk.ErrInternal(fmt.Sprintf("failed to parse params: %s", err))
-	}
-
-	// Get CDPs
-	cdps, err2 := keeper.GetUnderCollateralizedCDPs(ctx, requestParams.CollateralDenom, requestParams.Price)
-	if err2 != nil {
-		return nil, err2
-	}
-
-	// Encode results
-	bz, err3 := codec.MarshalJSONIndent(keeper.cdc, cdps)
-	if err3 != nil {
-		return nil, sdk.ErrInternal(sdk.AppendMsgToErr("could not marshal result to JSON", err3.Error()))
 	}
 	return bz, nil
 }
