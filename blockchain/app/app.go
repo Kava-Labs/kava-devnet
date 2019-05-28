@@ -195,6 +195,8 @@ func NewUsdxApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 		slashingSubspace, slashing.DefaultCodespace)
 	app.crisisKeeper = crisis.NewKeeper(crisisSubspace, invCheckPeriod, app.distrKeeper,
 		app.bankKeeper, app.feeCollectionKeeper)
+
+	app.pricefeedKeeper = pricefeed.NewKeeper(app.keyPricefeed, app.cdc, pricefeed.DefaultCodespace)
 	app.cdpKeeper = cdp.NewKeeper(
 		app.cdc,
 		app.keyCdp,
