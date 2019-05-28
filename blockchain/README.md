@@ -6,7 +6,7 @@
 
 ## Setup
 
-To start running a local development testnet
+To start a local development testnet
 
     usdxd init --chain-id usdx-test testing
     usdxcli keys add alice
