@@ -24,7 +24,11 @@ func GetCmdPlaceBid(cdc *codec.Codec) *cobra.Command {
 			if err := cliCtx.EnsureAccountExists(); err != nil {
 				return err
 			}
-			id := sdk.NewUintFromString(args[0])
+			id, err := auction.NewIDFromString(args[0])
+			if err != nil {
+				fmt.Printf("invalid auction id - %s \n", string(args[0]))
+				return err
+			}
 
 			bid, err := sdk.ParseCoin(args[2])
 			if err != nil {
@@ -37,13 +41,13 @@ func GetCmdPlaceBid(cdc *codec.Codec) *cobra.Command {
 				fmt.Printf("invalid lot - %s \n", string(args[3]))
 				return err
 			}
-			msg := auction.NewMsgPlaceBid(id.Uint64(), cliCtx.GetFromAddress(), bid, lot)
+			msg := auction.NewMsgPlaceBid(id, cliCtx.GetFromAddress(), bid, lot)
 			err = msg.ValidateBasic()
 			if err != nil {
 				return err
 			}
 			cliCtx.PrintResponse = true
-			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg}, false)
+			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
 		},
 	}
 }

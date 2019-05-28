@@ -2,6 +2,7 @@ package auction
 
 import (
 	"fmt"
+	"strconv"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
@@ -33,7 +34,17 @@ type BaseAuction struct {
 }
 
 type ID uint64
+
+func NewIDFromString(s string) (ID, error) {
+	n, err := strconv.ParseUint(s, 10, 64) // copied from how the gov module rest handler's parse proposal IDs
+	if err != nil {
+		return 0, err
+	}
+	return ID(n), nil
+}
+
 type endTime int64 // TODO rename to Blockheight or don't define custom type
+
 // Initially the input and output types from the bank module where used here. But they use sdk.Coins instad of sdk.Coin. So it caused a lot of type conversion as auction mainly uses sdk.Coin.
 type bankInput struct {
 	Address sdk.AccAddress

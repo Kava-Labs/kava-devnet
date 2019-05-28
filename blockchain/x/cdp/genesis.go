@@ -39,16 +39,10 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
 	keeper.setGlobalDebt(ctx, data.GlobalDebt)
 }
 
-// ExportGenesis returns a GenesisState for a given context and keeper.
-// TODO write this
-// func ExportGenesis(ctx sdk.Context, keeper Keeper) GenesisState {
-// 	return NewGenesisState(keeper.GetSendEnabled(ctx))
-// }
-
-// ValidateGenesis performs basic validation of bank genesis data returning an
+// ValidateGenesis performs basic validation of genesis data returning an
 // error for any failed validation criteria.
 func ValidateGenesis(data GenesisState) error {
-	// TODO
+	// TODO implement this
 	// validate denoms
 	// check collateral debt limits sum to global limit?
 	// check limits are > 0
@@ -57,4 +51,10 @@ func ValidateGenesis(data GenesisState) error {
 
 	// check global debt is zero - force the chain to always start with zero stable coin, otherwise collateralStatus's will need to be set up as well.
 	return nil
+}
+
+// ExportGenesis returns a GenesisState for a given context and keeper.
+func ExportGenesis(ctx sdk.Context, keeper Keeper) GenesisState {
+	// TODO implement this
+	return DefaultGenesisState()
 }
