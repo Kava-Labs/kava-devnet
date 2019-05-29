@@ -32,6 +32,9 @@ const (
 
 	// Store Prefix for the assets in the pricefeed system
 	AssetPrefix = StoreKey + ":assets"
+
+	// OraclePrefix store prefix for the oracle accounts
+	OraclePrefix = StoreKey + ":oracles"
 )
 
 // Keeper struct for pricefeed module
@@ -48,6 +51,17 @@ func NewKeeper(storeKey sdk.StoreKey, cdc *codec.Codec, codespace sdk.CodespaceT
 		cdc:       cdc,
 		codespace: codespace,
 	}
+}
+
+// AddOracle adds an Oracle to the store
+func (k Keeper) AddOracle(ctx sdk.Context, address string) {
+
+	oracles := k.GetOracles(ctx)
+	oracles = append(oracles, Oracle{OracleAddress: address})
+	store := ctx.KVStore(k.storeKey)
+	store.Set(
+		[]byte(OraclePrefix), k.cdc.MustMarshalBinaryBare(oracles),
+	)
 }
 
 // AddAsset adds an asset to the store
@@ -169,7 +183,16 @@ func (k Keeper) SetCurrentPrices(ctx sdk.Context) sdk.Error {
 	return nil
 }
 
-// GetAssets returns the assets in the pricefeed system
+// GetOracles returns the oracles in the pricefeed store
+func (k Keeper) GetOracles(ctx sdk.Context) []Oracle {
+	store := ctx.KVStore(k.storeKey)
+	bz := store.Get([]byte(OraclePrefix))
+	var oracles []Oracle
+	k.cdc.MustUnmarshalBinaryBare(bz, &oracles)
+	return oracles
+}
+
+// GetAssets returns the assets in the pricefeed store
 func (k Keeper) GetAssets(ctx sdk.Context) []Asset {
 	store := ctx.KVStore(k.storeKey)
 	bz := store.Get([]byte(AssetPrefix))
@@ -188,6 +211,19 @@ func (k Keeper) GetAsset(ctx sdk.Context, assetCode string) (Asset, bool) {
 		}
 	}
 	return Asset{}, false
+
+}
+
+// GetOracle returns the oracle address as a string if it is in the pricefeed store
+func (k Keeper) GetOracle(ctx sdk.Context, oracle string) (Oracle, bool) {
+	oracles := k.GetOracles(ctx)
+
+	for i := range oracles {
+		if oracles[i].OracleAddress == oracle {
+			return oracles[i], true
+		}
+	}
+	return Oracle{}, false
 
 }
 
@@ -211,11 +247,17 @@ func (k Keeper) GetRawPrices(ctx sdk.Context, assetCode string) []PostedPrice {
 }
 
 // ValidatePostPrice makes sure the person posting the price is an oracle
-func (k Keeper) ValidatePostPrice(ctx sdk.Context, msg MsgPostPrice) bool {
+func (k Keeper) ValidatePostPrice(ctx sdk.Context, msg MsgPostPrice) sdk.Error {
 	// TODO implement this
-	_, found := k.GetAsset(ctx, msg.AssetCode)
-	if !found {
-		return false
+
+	_, assetFound := k.GetAsset(ctx, msg.AssetCode)
+	if !assetFound {
+		return ErrInvalidAsset(k.codespace)
 	}
-	return true
+	_, oracleFound := k.GetOracle(ctx, msg.From.String())
+	if !oracleFound {
+		return ErrInvalidOracle(k.codespace)
+	}
+
+	return nil
 }

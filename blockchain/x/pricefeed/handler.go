@@ -29,9 +29,9 @@ func HandleMsgPostPrice(
 	msg MsgPostPrice) sdk.Result {
 
 	// TODO cleanup message validation and errors
-	ok := k.ValidatePostPrice(ctx, msg)
-	if !ok {
-		return sdk.ErrInvalidAddress("address not authorized to post prices.").Result()
+	err := k.ValidatePostPrice(ctx, msg)
+	if err != nil {
+		return err.Result()
 	}
 	k.SetPrice(ctx, msg.From, msg.AssetCode, msg.Price, msg.Expiry)
 	return sdk.Result{}
