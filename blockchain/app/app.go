@@ -36,13 +36,13 @@ const (
 )
 
 var (
-	// default home directories for usdxcli
+	// DefaultCLIHome default home directories for usdxcli
 	DefaultCLIHome = os.ExpandEnv("$HOME/.usdxcli")
 
-	// default home directories for usdxd
+	// DefaultNodeHome default home directories for usdxd
 	DefaultNodeHome = os.ExpandEnv("$HOME/.usdxd")
 
-	// The ModuleBasicManager is in charge of setting up basic,
+	// ModuleBasics The ModuleBasicManager is in charge of setting up basic,
 	// non-dependant module elements, such as codec registration
 	// and genesis verification.
 	ModuleBasics sdk.ModuleBasicManager
@@ -68,7 +68,7 @@ func init() {
 	)
 }
 
-// custom tx codec
+// MakeCodec custom tx codec
 func MakeCodec() *codec.Codec {
 	var cdc = codec.New()
 	ModuleBasics.RegisterCodec(cdc)
@@ -303,24 +303,24 @@ func NewUsdxApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 	return app
 }
 
-// application updates every begin block
+// BeginBlocker application updates every begin block
 func (app *UsdxApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
 	return app.mm.BeginBlock(ctx, req)
 }
 
-// application updates every end block
+// EndBlocker application updates every end block
 func (app *UsdxApp) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
 	return app.mm.EndBlock(ctx, req)
 }
 
-// application update at chain initialization
+// InitChainer application update at chain initialization
 func (app *UsdxApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
 	app.cdc.MustUnmarshalJSON(req.AppStateBytes, &genesisState)
 	return app.mm.InitGenesis(ctx, genesisState)
 }
 
-// load a particular height
+// LoadHeight load a particular height
 func (app *UsdxApp) LoadHeight(height int64) error {
 	return app.LoadVersion(height, app.keyMain)
 }
