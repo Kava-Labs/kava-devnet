@@ -1,6 +1,8 @@
 package cdp
 
 import (
+	"fmt"
+
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/params"
 )
@@ -32,6 +34,26 @@ func createParamsKeyTable() params.KeyTable {
 	return params.NewKeyTable(
 		moduleParamsKey, CdpModuleParams{},
 	)
+}
+
+// Implement fmt.Stringer interface for cli querying
+func (p CdpModuleParams) String() string {
+	out := fmt.Sprintf(`Params:
+	Global Debt Limit: %s
+	Collateral Params:`,
+		p.GlobalDebtLimit,
+	)
+	for _, cp := range p.CollateralParams {
+		out += fmt.Sprintf(`
+		%s
+			Liquidation Ratio: %s
+			Debt Limit:        %s`,
+			cp.Denom,
+			cp.LiquidationRatio,
+			cp.DebtLimit,
+		)
+	}
+	return out
 }
 
 // Helper methods to search the list of collateral params for a particular denom. Wouldn't be needed if amino supported maps.

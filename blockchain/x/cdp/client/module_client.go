@@ -27,7 +27,10 @@ func (mc ModuleClient) GetQueryCmd() *cobra.Command {
 	}
 
 	cdpQueryCmd.AddCommand(client.GetCommands(
-		cdpcmd.GetCmdGetCdp(mc.storeKey, mc.cdc),
+		cdpcmd.GetCmd_GetCdp(mc.storeKey, mc.cdc),
+		cdpcmd.GetCmd_GetCdps(mc.storeKey, mc.cdc),
+		cdpcmd.GetCmd_GetUnderCollateralizedCdps(mc.storeKey, mc.cdc),
+		cdpcmd.GetCmd_GetParams(mc.storeKey, mc.cdc),
 	)...)
 
 	return cdpQueryCmd

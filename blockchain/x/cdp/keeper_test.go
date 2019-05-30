@@ -124,9 +124,9 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 
 			// check for err
 			if tc.expectPass {
-				require.Nil(t, err, fmt.Sprint(err))
+				require.NoError(t, err, fmt.Sprint(err))
 			} else {
-				require.NotNil(t, err)
+				require.Error(t, err)
 			}
 			// get new state for verification
 			actualCDP, found := keeper.GetCDP(ctx, tc.args.owner, tc.args.collateralDenom)
@@ -185,6 +185,83 @@ func TestKeeper_PartialSeizeCDP(t *testing.T) {
 	collateralState, found := keeper.GetCollateralState(ctx, collateral)
 	require.True(t, found)
 	require.Equal(t, sdk.ZeroInt(), collateralState.TotalDebt)
+}
+
+func TestKeeper_GetCDPs(t *testing.T) {
+	// setup keeper
+	mapp, keeper := setUpMockAppWithoutGenesis()
+	mock.SetGenesis(mapp, []auth.Account(nil))
+	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
+	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
+	ctx := mapp.BaseApp.NewContext(false, header)
+	// setup CDPs
+	_, addrs := mock.GeneratePrivKeyAddressPairs(2)
+	cdps := CDPs{
+		{addrs[0], "xrp", i(4000), i(5)},
+		{addrs[1], "xrp", i(4000), i(2000)},
+		{addrs[0], "btc", i(10), i(20)},
+	}
+	for _, cdp := range cdps {
+		keeper.setCDP(ctx, cdp)
+	}
+
+	// Check nil params returns all CDPs
+	returnedCdps, err := keeper.GetCDPs(ctx, "", sdk.Dec{})
+	require.NoError(t, err)
+	require.Equal(t,
+		CDPs{
+			{addrs[0], "btc", i(10), i(20)},
+			{addrs[1], "xrp", i(4000), i(2000)},
+			{addrs[0], "xrp", i(4000), i(5)}},
+		returnedCdps,
+	)
+	// Check correct CDPs filtered by collateral and sorted
+	returnedCdps, err = keeper.GetCDPs(ctx, "xrp", d("0.00000001"))
+	require.NoError(t, err)
+	require.Equal(t,
+		CDPs{
+			{addrs[1], "xrp", i(4000), i(2000)},
+			{addrs[0], "xrp", i(4000), i(5)}},
+		returnedCdps,
+	)
+	returnedCdps, err = keeper.GetCDPs(ctx, "xrp", sdk.Dec{})
+	require.NoError(t, err)
+	require.Equal(t,
+		CDPs{
+			{addrs[1], "xrp", i(4000), i(2000)},
+			{addrs[0], "xrp", i(4000), i(5)}},
+		returnedCdps,
+	)
+	returnedCdps, err = keeper.GetCDPs(ctx, "xrp", d("0.9"))
+	require.NoError(t, err)
+	require.Equal(t,
+		CDPs{
+			{addrs[1], "xrp", i(4000), i(2000)}},
+		returnedCdps,
+	)
+	// Check high price returns no CDPs
+	returnedCdps, err = keeper.GetCDPs(ctx, "xrp", d("999999999.99"))
+	require.NoError(t, err)
+	require.Equal(t,
+		CDPs(nil),
+		returnedCdps,
+	)
+	// Check unauthorized collateral denom returns error
+	_, err = keeper.GetCDPs(ctx, "a non existent coin", d("0.34023"))
+	require.Error(t, err)
+	// Check price without collateral returns error
+	_, err = keeper.GetCDPs(ctx, "", d("0.34023"))
+	require.Error(t, err)
+	// Check deleting a CDP removes it
+	keeper.deleteCDP(ctx, cdps[0])
+	returnedCdps, err = keeper.GetCDPs(ctx, "", sdk.Dec{})
+	require.NoError(t, err)
+	require.Equal(t,
+		CDPs{
+			{addrs[0], "btc", i(10), i(20)},
+			{addrs[1], "xrp", i(4000), i(2000)}},
+		returnedCdps,
+	)
 }
 func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	// setup keeper, create CDP
