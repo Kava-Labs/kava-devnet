@@ -12,12 +12,10 @@ Notes
 	- liquidator needs get access to stable and gov denoms from the cdp module
 
 TODO
+ - Is returning unsold collateral to the CDP owner rather than the CDP a problem? It could prevent the CDP from becoming safe again.
  - Add some kind of more complete test
- - Add an endblocker that seizes all undercollateralized CDPs (requires queue structure in CDP module)
- - Add params (need access to the collateral types for fees. Can this module access the cdp module params?)
- - rename SeizedDebt to TotalSeizedDebt ?
  - Add constants for the module and route names
- - user facing things like cli, rest, querier, tags
+ - tags
  - custom error types, codespace
 */
 package liquidator

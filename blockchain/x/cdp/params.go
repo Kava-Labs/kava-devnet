@@ -28,11 +28,11 @@ type CollateralParams struct {
 	//DebtFloor        sdk.Int // used to prevent dust
 }
 
-var cdpModuleParamsKey = []byte("CdpModuleParams")
+var moduleParamsKey = []byte("CdpModuleParams")
 
 func createParamsKeyTable() params.KeyTable {
 	return params.NewKeyTable(
-		cdpModuleParamsKey, CdpModuleParams{},
+		moduleParamsKey, CdpModuleParams{},
 	)
 }
 

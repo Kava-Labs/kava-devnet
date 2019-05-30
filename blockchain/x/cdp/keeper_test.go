@@ -107,7 +107,7 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 			keeper.pricefeed.SetPrice(
 				ctx, sdk.AccAddress{}, "xrp",
 				sdk.MustNewDecFromStr(tc.price),
-				sdk.NewInt(10))
+				i(10))
 			keeper.pricefeed.SetCurrentPrices(ctx)
 			if tc.priorState.CDP.CollateralDenom != "" { // check if the prior CDP should be created or not (see if an empty one was specified)
 				keeper.setCDP(ctx, tc.priorState.CDP)
@@ -147,7 +147,8 @@ func TestKeeper_ModifyCDP(t *testing.T) {
 	}
 }
 
-func TestKeeper_SeizeCDP(t *testing.T) {
+// TODO change to table driven test to test more test cases
+func TestKeeper_PartialSeizeCDP(t *testing.T) {
 	// Setup
 	const collateral = "xrp"
 	mapp, keeper := setUpMockAppWithoutGenesis()
@@ -158,11 +159,11 @@ func TestKeeper_SeizeCDP(t *testing.T) {
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
-	keeper.pricefeed.AddAsset(ctx, collateral, "xrp test")
+	keeper.pricefeed.AddAsset(ctx, collateral, "test description") 
 	keeper.pricefeed.SetPrice(
 		ctx, sdk.AccAddress{}, collateral,
 		sdk.MustNewDecFromStr("1.00"),
-		sdk.NewInt(10))
+		i(10))
 	keeper.pricefeed.SetCurrentPrices(ctx)
 	// Create CDP
 	err := keeper.ModifyCDP(ctx, testAddr, collateral, i(10), i(5))
@@ -171,19 +172,19 @@ func TestKeeper_SeizeCDP(t *testing.T) {
 	keeper.pricefeed.SetPrice(
 		ctx, sdk.AccAddress{}, collateral,
 		sdk.MustNewDecFromStr("0.90"),
-		sdk.NewInt(10))
+		i(10))
 	keeper.pricefeed.SetCurrentPrices(ctx)
 
-	// Seize CDP
-	_, err = keeper.SeizeCDP(ctx, testAddr, collateral)
+	// Seize entire CDP
+	err = keeper.PartialSeizeCDP(ctx, testAddr, collateral, i(10), i(5))
 
 	// Check
 	require.NoError(t, err)
 	_, found := keeper.GetCDP(ctx, testAddr, collateral)
 	require.False(t, found)
-	cState, found := keeper.GetCollateralState(ctx, collateral)
+	collateralState, found := keeper.GetCollateralState(ctx, collateral)
 	require.True(t, found)
-	require.Equal(t, sdk.ZeroInt(), cState.TotalDebt)
+	require.Equal(t, sdk.ZeroInt(), collateralState.TotalDebt)
 }
 
 func TestKeeper_GetCDPs(t *testing.T) {
@@ -269,7 +270,7 @@ func TestKeeper_GetSetDeleteCDP(t *testing.T) {
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
-	cdp := CDP{addrs[0], "xrp", sdk.NewInt(412), sdk.NewInt(56)}
+	cdp := CDP{addrs[0], "xrp", i(412), i(56)}
 
 	// write and read from store
 	keeper.setCDP(ctx, cdp)
@@ -292,7 +293,7 @@ func TestKeeper_GetSetGDebt(t *testing.T) {
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
-	gDebt := sdk.NewInt(4120000)
+	gDebt := i(4120000)
 
 	// write and read from store
 	keeper.setGlobalDebt(ctx, gDebt)
@@ -308,13 +309,13 @@ func TestKeeper_GetSetCollateralState(t *testing.T) {
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
-	cState := CollateralState{"xrp", sdk.NewInt(15400)}
+	collateralState := CollateralState{"xrp", i(15400)}
 
 	// write and read from store
-	keeper.setCollateralState(ctx, cState)
-	readCState, found := keeper.GetCollateralState(ctx, cState.Denom)
+	keeper.setCollateralState(ctx, collateralState)
+	readCState, found := keeper.GetCollateralState(ctx, collateralState.Denom)
 
 	// check before and after match
-	require.Equal(t, cState, readCState)
+	require.Equal(t, collateralState, readCState)
 	require.True(t, found)
 }

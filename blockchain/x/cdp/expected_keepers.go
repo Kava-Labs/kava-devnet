@@ -8,8 +8,8 @@ import (
 type bankKeeper interface {
 	GetCoins(sdk.Context, sdk.AccAddress) sdk.Coins
 	HasCoins(sdk.Context, sdk.AccAddress, sdk.Coins) bool
-	AddCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error)
-	SubtractCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Tags, sdk.Error)
+	AddCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Error)
+	SubtractCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Error)
 }
 
 type pricefeedKeeper interface {

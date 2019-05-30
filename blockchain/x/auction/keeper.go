@@ -73,7 +73,7 @@ func (k Keeper) startAuction(ctx sdk.Context, auction Auction, initiatorOutput b
 	auction.SetID(newAuctionID)
 
 	// subtract coins from initiator
-	_, _, err = k.bankKeeper.SubtractCoins(ctx, initiatorOutput.Address, sdk.NewCoins(initiatorOutput.Coin))
+	_, err = k.bankKeeper.SubtractCoins(ctx, initiatorOutput.Address, sdk.NewCoins(initiatorOutput.Coin))
 	if err != nil {
 		return 0, err
 	}
@@ -101,14 +101,14 @@ func (k Keeper) PlaceBid(ctx sdk.Context, auctionID ID, bidder sdk.AccAddress, b
 	// TODO this will fail if someone tries to update their bid without the full bid amount sitting in their account
 	// sub outputs
 	for _, output := range coinOutputs {
-		_, _, err = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.NewCoins(output.Coin)) // TODO handle errors properly here. All coin transfers should be atomic. InputOutputCoins may work
+		_, err = k.bankKeeper.SubtractCoins(ctx, output.Address, sdk.NewCoins(output.Coin)) // TODO handle errors properly here. All coin transfers should be atomic. InputOutputCoins may work
 		if err != nil {
 			panic(err)
 		}
 	}
 	// add inputs
 	for _, input := range coinInputs {
-		_, _, err = k.bankKeeper.AddCoins(ctx, input.Address, sdk.NewCoins(input.Coin)) // TODO errors
+		_, err = k.bankKeeper.AddCoins(ctx, input.Address, sdk.NewCoins(input.Coin)) // TODO errors
 		if err != nil {
 			panic(err)
 		}
@@ -135,7 +135,7 @@ func (k Keeper) CloseAuction(ctx sdk.Context, auctionID ID) sdk.Error {
 	}
 	// payout to the last bidder
 	coinInput := auction.GetPayout()
-	_, _, err := k.bankKeeper.AddCoins(ctx, coinInput.Address, sdk.NewCoins(coinInput.Coin))
+	_, err := k.bankKeeper.AddCoins(ctx, coinInput.Address, sdk.NewCoins(coinInput.Coin))
 	if err != nil {
 		return err
 	}
