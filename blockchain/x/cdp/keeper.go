@@ -222,15 +222,6 @@ func (k Keeper) ReduceGlobalDebt(ctx sdk.Context, amount sdk.Int) sdk.Error {
 	return nil
 }
 
-func (k Keeper) GetStableDenom() string { return StableDenom }
-func (k Keeper) GetGovDenom() string    { return GovDenom }
-
-<<<<<<< HEAD
-=======
-// 	// return iterator
-// 	return nil
-// }
-
 func (k Keeper) GetStableDenom() string {
 	return StableDenom
 }
@@ -238,7 +229,6 @@ func (k Keeper) GetGovDenom() string {
 	return GovDenom
 }
 
->>>>>>> master
 // ---------- Module Parameters ----------
 
 func (k Keeper) GetParams(ctx sdk.Context) CdpModuleParams {

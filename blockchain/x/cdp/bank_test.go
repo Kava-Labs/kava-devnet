@@ -50,9 +50,9 @@ func TestKeeper_AddSubtractGetCoins(t *testing.T) {
 			// perform the test action
 			var err sdk.Error
 			if tc.shouldAdd {
-				_, _, err = keeper.AddCoins(ctx, tc.address, tc.amount)
+				_, err = keeper.AddCoins(ctx, tc.address, tc.amount)
 			} else {
-				_, _, err = keeper.SubtractCoins(ctx, tc.address, tc.amount)
+				_, err = keeper.SubtractCoins(ctx, tc.address, tc.amount)
 			}
 
 			mapp.EndBlock(abci.RequestEndBlock{})
