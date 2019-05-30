@@ -13,6 +13,10 @@ func InitGenesis(ctx sdk.Context, keeper Keeper, genState GenesisState) {
 	for _, asset := range genState.Assets {
 		keeper.AddAsset(ctx, asset.AssetCode, asset.Description)
 	}
+
+	for _, oracle := range genState.Oracles {
+		keeper.AddOracle(ctx, oracle.OracleAddress)
+	}
 }
 
 // DefaultGenesisState returns a default genesis state

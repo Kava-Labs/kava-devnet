@@ -14,8 +14,12 @@ const (
 	CodeEmptyInput sdk.CodeType = 1
 	// CodeExpired error code for expired prices
 	CodeExpired sdk.CodeType = 2
-	// CodeInvalid error code for all input prices expired
-	CodeInvalid sdk.CodeType = 3
+	// CodeInvalidPrice error code for all input prices expired
+	CodeInvalidPrice sdk.CodeType = 3
+	// CodeInvalidAsset error code for invalid asset
+	CodeInvalidAsset sdk.CodeType = 4
+	// CodeInvalidOracle error code for invalid oracle
+	CodeInvalidOracle sdk.CodeType = 5
 )
 
 // ErrEmptyInput Error constructor
@@ -30,5 +34,15 @@ func ErrExpired(codespace sdk.CodespaceType) sdk.Error {
 
 // ErrNoValidPrice Error constructor for posted price messages with expired price
 func ErrNoValidPrice(codespace sdk.CodespaceType) sdk.Error {
-	return sdk.NewError(codespace, CodeInvalid, fmt.Sprintf("All input prices are expired."))
+	return sdk.NewError(codespace, CodeInvalidPrice, fmt.Sprintf("All input prices are expired."))
+}
+
+// ErrInvalidAsset Error constructor for posted price messages for invalid assets
+func ErrInvalidAsset(codespace sdk.CodespaceType) sdk.Error {
+	return sdk.NewError(codespace, CodeInvalidAsset, fmt.Sprintf("Asset code does not exist."))
+}
+
+// ErrInvalidOracle Error constructor for posted price messages for invalid oracles
+func ErrInvalidOracle(codespace sdk.CodespaceType) sdk.Error {
+	return sdk.NewError(codespace, CodeInvalidOracle, fmt.Sprintf("Oracle does not exist or not authorized."))
 }
