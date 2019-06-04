@@ -20,7 +20,7 @@ There are 4 modules that make up the system:
 * CDP
 * Liquidator
 
-The pricefeed module implements a simple price oracle where a group of white-listed oracles post prices for various assets in the system. The median price of all valid oracle prices is taken as the current price in the system. The adding and removing of assets is controlled by governance proposals.
+The pricefeed module implements a simple price oracle where a group of white-listed oracles post prices for various assets in the system. The median price of all valid oracle prices is taken as the current price in the system. Adding and removing of assets is controlled by governance proposals.
 
 The Auction module implements three distinct auction types that control the supply of bad debt and surplus in the CDP system.
 
@@ -30,7 +30,13 @@ The Auction module implements three distinct auction types that control the supp
 
 **Forward Reverse Auction** An auction where a buyer solicits increasing bids for a lot of goods, up to some ceiling. After the ceiling is reached, each bid lowers the amount of goods being sold for the ceiling  price. This type of auction is used when collateral is siezed from a risky CDP and sold for stablecoins to cover the debt.
 
-The CDP module is essentiall a factory for creating CDPs. It allows users to create, modify, and close CDPs for any collateral type in the pricefeed module.
+The CDP module is a factory for creating CDPs and storing the global state of the debt system. It allows users to create, modify, and close CDPs for any collateral type in the pricefeed module. It also sets the global parameters of the system, which can be altered by governance proposals. These parameters include the global debt limit (the total amount of stablecoins that can be in circulation), the debt limit for each collateral type, and the collateralization ratio for each collateral type.
 
 The liquidator module tracks the status of CDPs based on prices in the pricefeed module and is responsible for siezing collateral from risky CDPs and sending it to the auction module.
 
+The system is secured by Kava, a staking and governance token. Staked Kava tokens receive inflationary block rewards and are eligible to create and vote on governance proposals.
+
+### Liquidation and Recolateralization
+In the event of a CDP falling below the required collateral ratio, that CDP will be siezed by the liquidator module. When a `lot` of collateral has been siezed due to liquidations, that collateral is auctioned by the auction module for stable tokens using a forward reverse auction. In normal times, this auction is expected to raise sufficient stable tokens to wipe out the debt originally held by the CDP owners, along with a small liquidation penalty.
+
+In the event collateral auctions fail to raise the requisite amount of stable tokens, Kava tokens are auctioned by the auction module for stable tokens using a reverse auction until the global collateral ratio is reached.
