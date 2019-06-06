@@ -112,6 +112,7 @@ github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7V
 github.com/kava-labs/usdx v0.0.0-20190423185505-e61d12492f36 h1:8S2nd1/lTK+fB/nM+p7eD6yov2zAcyxHaZ70g0hj+MU=
 github.com/kava-labs/usdx v0.0.0-20190530163409-b82a2c392e19 h1:FqMKaFcK5gNbaTz/aclGzKl4kKfgUwrmnbtXfcEhPR4=
 github.com/kava-labs/usdx v0.0.0-20190605155523-f855916349cc h1:0Pj7PZALZ4HLwi6i4FgfcMJ5bfCZfHLgthyRAi50W28=
+github.com/kava-labs/usdx v0.0.0-20190605160422-195123762378 h1:23EnKTDEcZPHofHcELMG1a5O2tLicXdTuSoDZxrxefU=
 github.com/kisielk/errcheck v1.1.0/go.mod h1:EZBBE59ingxPouuu3KfxchcWSUPOHkagtvWXihfKN4Q=
 github.com/kisielk/gotool v1.0.0/go.mod h1:XhKaO+MFFWcvkIS/tQcRk01m1F5IRFswLeQ+oQHNcck=
 github.com/kkdai/bstream v0.0.0-20161212061736-f391b8402d23/go.mod h1:J+Gs4SYgM6CZQHDETBtE9HaSEkGmuNXF86RwHhHUvq4=
