@@ -1,0 +1,11 @@
+version: 2
+jobs:
+  build:
+    docker:
+      - image: circleci/golang:1.12
+    working_directory: ~/usdx/blockchain
+    steps:
+      - checkout:
+          path: ~/usdx
+      - run: go get -d
+      - run: go test ./...
