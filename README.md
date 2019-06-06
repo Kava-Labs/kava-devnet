@@ -1,5 +1,7 @@
 # USDX
 
+[![CircleCI](https://circleci.com/gh/Kava-Labs/usdx/tree/master.svg?style=shield)](https://circleci.com/gh/Kava-Labs/usdx/tree/master)
+
 A protocol for collateralized loans using any digital asset and dollar-denominated debts (stablecoins) built on the [cosmos-sdk](https://github.com/cosmos/cosmos-sdk).
 
 ## Quick Start
