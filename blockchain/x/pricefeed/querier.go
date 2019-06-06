@@ -1,12 +1,11 @@
-
 package pricefeed
 
 import (
 	"fmt"
-	"strings"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	abci "github.com/tendermint/tendermint/abci/types"
+	"strings"
 )
 
 // price Takes an [assetcode] and returns CurrentPrice for that asset
@@ -75,7 +74,6 @@ func NewQuerier(keeper Keeper) sdk.Querier {
 	}
 
 }
-
 
 func queryCurrentPrice(ctx sdk.Context, path []string, req abci.RequestQuery, keeper Keeper) (res []byte, err sdk.Error) {
 	assetCode := path[0]

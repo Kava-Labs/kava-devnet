@@ -23,7 +23,7 @@ func TestApp_ForwardAuction(t *testing.T) {
 	// Create a block where an auction is started (lot: 20 t1, initialBid: 0 t2)
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
-	ctx := mapp.BaseApp.NewContext(false, header)                                                   // make sure first arg is false, otherwise no db writes
+	ctx := mapp.BaseApp.NewContext(false, header)                                                          // make sure first arg is false, otherwise no db writes
 	keeper.StartForwardAuction(ctx, seller, sdk.NewInt64Coin("token1", 20), sdk.NewInt64Coin("token2", 0)) // lot, initialBid
 	mapp.EndBlock(abci.RequestEndBlock{})
 	mapp.Commit()

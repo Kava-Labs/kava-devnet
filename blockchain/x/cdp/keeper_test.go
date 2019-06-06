@@ -159,7 +159,7 @@ func TestKeeper_PartialSeizeCDP(t *testing.T) {
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := mapp.BaseApp.NewContext(false, header)
-	keeper.pricefeed.AddAsset(ctx, collateral, "test description") 
+	keeper.pricefeed.AddAsset(ctx, collateral, "test description")
 	keeper.pricefeed.SetPrice(
 		ctx, sdk.AccAddress{}, collateral,
 		sdk.MustNewDecFromStr("1.00"),
