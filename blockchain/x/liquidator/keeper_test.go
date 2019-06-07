@@ -37,7 +37,7 @@ func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {
 	cdp, found := k.cdpKeeper.GetCDP(ctx, addrs[0], "btc")
 	require.True(t, found)
 	require.Equal(t, cdp.CollateralAmount, i(2)) // original amount - params.CollateralAuctionSize
-	require.Equal(t, cdp.Debt, i(10667)) // original debt scaled by amount of collateral removed
+	require.Equal(t, cdp.Debt, i(10667))         // original debt scaled by amount of collateral removed
 	// Check auction exists
 	_, found = k.auctionKeeper.GetAuction(ctx, auctionID)
 	require.True(t, found)

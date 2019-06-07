@@ -7,5 +7,20 @@ jobs:
     steps:
       - checkout:
           path: ~/usdx
+      - restore_cache:
+          keys: ['go-mod-v1-{{ checksum "go.sum" }}']
       - run: go get -d
       - run: go test ./...
+      - save_cache:
+          key: go-mod-v1-{{ checksum "go.sum" }}
+          paths:
+            - "/go/pkg/mod"
+
+workflows:
+  version: 2
+  main:
+    jobs:
+      - build:
+          filters:
+            branches:
+              only: /.*/

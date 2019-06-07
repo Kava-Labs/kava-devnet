@@ -1,6 +1,5 @@
 package client
 
-
 import (
 	"github.com/cosmos/cosmos-sdk/client"
 	auctioncmd "github.com/kava-labs/usdx/blockchain/x/auction/client/cli"
