@@ -1,14 +1,19 @@
 # USDX
 
 [![CircleCI](https://circleci.com/gh/Kava-Labs/usdx/tree/master.svg?style=shield)](https://circleci.com/gh/Kava-Labs/usdx/tree/master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kava-labs/usdx)](https://goreportcard.com/report/github.com/kava-labs/usdx)
+[![API Reference](https://godoc.org/github.com/Kava-Labs/usdx?status.svg
+)](https://godoc.org/github.com/Kava-Labs/usdx)
+[![license](https://img.shields.io/github/license/Kava-Labs/usdx.svg)](https://github.com/Kava-Labs/usdx/blob/master/LICENSE)
 
-A protocol for collateralized loans using any digital asset and dollar-denominated debts (stablecoins) built on the [cosmos-sdk](https://github.com/cosmos/cosmos-sdk).
+A protocol for creating a collateral-backed stablecoin using any digital asset. Built on the [cosmos-sdk](https://github.com/cosmos/cosmos-sdk).
 
 ## Quick Start
 
-To read about the design of the system, see [here](./spec/usdx.md).
+To read about the design of USDX, see [here](./spec/usdx.md).
 
 ### Installing
+  To install, clone the repo and go to the new directory.
 
     go install ./blockchain/cmd/usdxd ./blockchain/cmd/usdxcli
 

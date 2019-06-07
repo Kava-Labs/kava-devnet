@@ -15,7 +15,7 @@ type Oracle struct {
 	OracleAddress string `json:"oracle_address"`
 }
 
-// CurrentPrice is a struct that contains the metadata of a current price for a particular asset in the pricefeed module.
+// CurrentPrice struct that contains the metadata of a current price for a particular asset in the pricefeed module.
 type CurrentPrice struct {
 	AssetCode string  `json:"asset_code"`
 	Price     sdk.Dec `json:"price"`
