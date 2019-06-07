@@ -170,6 +170,10 @@ type MsgSeizeAndStartCollateralAuction struct {
 	CdpOwner        sdk.AccAddress
 	CollateralDenom string
 }
+
+type MsgStartDebtAuction struct {
+	Sender sdk.AccAddress // needed to pay the tx fees
+}
 ```
 
 ### Kava - Governance and Staking Token
