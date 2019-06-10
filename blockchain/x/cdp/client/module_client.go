@@ -2,7 +2,7 @@ package client
 
 import (
 	"github.com/cosmos/cosmos-sdk/client"
-	cdpcmd "github.com/kava-labs/usdx/blockchain/x/cdp/client/cli"
+	cdpcmd "github.com/kava-labs/kava-devnet/blockchain/x/cdp/client/cli"
 	"github.com/spf13/cobra"
 	amino "github.com/tendermint/go-amino"
 )

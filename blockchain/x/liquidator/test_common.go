@@ -11,9 +11,9 @@ import (
 	dbm "github.com/tendermint/tendermint/libs/db"
 	"github.com/tendermint/tendermint/libs/log"
 
-	"github.com/kava-labs/usdx/blockchain/x/auction"
-	"github.com/kava-labs/usdx/blockchain/x/cdp"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
+	"github.com/kava-labs/kava-devnet/blockchain/x/auction"
+	"github.com/kava-labs/kava-devnet/blockchain/x/cdp"
+	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
 )
 
 // Avoid cluttering test cases with long function name

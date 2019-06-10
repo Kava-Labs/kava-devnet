@@ -20,10 +20,10 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/slashing"
 	"github.com/cosmos/cosmos-sdk/x/staking"
 
-	"github.com/kava-labs/usdx/blockchain/x/auction"
-	"github.com/kava-labs/usdx/blockchain/x/cdp"
-	"github.com/kava-labs/usdx/blockchain/x/liquidator"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
+	"github.com/kava-labs/kava-devnet/blockchain/x/auction"
+	"github.com/kava-labs/kava-devnet/blockchain/x/cdp"
+	"github.com/kava-labs/kava-devnet/blockchain/x/liquidator"
+	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
 
 	abci "github.com/tendermint/tendermint/abci/types"
 	cmn "github.com/tendermint/tendermint/libs/common"
@@ -32,15 +32,15 @@ import (
 )
 
 const (
-	appName = "usdx"
+	appName = "kava"
 )
 
 var (
-	// DefaultCLIHome default home directories for usdxcli
-	DefaultCLIHome = os.ExpandEnv("$HOME/.usdxcli")
+	// DefaultCLIHome default home directories for kavacli
+	DefaultCLIHome = os.ExpandEnv("$HOME/.kavacli")
 
-	// DefaultNodeHome default home directories for usdxd
-	DefaultNodeHome = os.ExpandEnv("$HOME/.usdxd")
+	// DefaultNodeHome default home directories for kavad
+	DefaultNodeHome = os.ExpandEnv("$HOME/.kavad")
 
 	// ModuleBasics The ModuleBasicManager is in charge of setting up basic,
 	// non-dependant module elements, such as codec registration
@@ -80,14 +80,14 @@ func MakeCodec() *codec.Codec {
 // SetAddressPrefixes sets the bech32 address prefixes globally for the sdk module.
 func SetAddressPrefixes() {
 	config := sdk.GetConfig()
-	config.SetBech32PrefixForAccount("usdx", "usdx"+"pub")
-	config.SetBech32PrefixForValidator("usdx"+"val"+"oper", "usdx"+"val"+"oper"+"pub")
-	config.SetBech32PrefixForConsensusNode("usdx"+"val"+"cons", "usdx"+"val"+"cons"+"pub")
+	config.SetBech32PrefixForAccount("kava", "kava"+"pub")
+	config.SetBech32PrefixForValidator("kava"+"val"+"oper", "kava"+"val"+"oper"+"pub")
+	config.SetBech32PrefixForConsensusNode("kava"+"val"+"cons", "kava"+"val"+"cons"+"pub")
 	config.Seal()
 }
 
-// UsdxApp - Extended ABCI application
-type UsdxApp struct {
+// KavaApp - Extended ABCI application
+type KavaApp struct {
 	*bam.BaseApp
 	cdc *codec.Codec
 
@@ -133,9 +133,9 @@ type UsdxApp struct {
 	mm *sdk.ModuleManager
 }
 
-// NewUsdxApp is a constructor function for usdxApp
-func NewUsdxApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest bool,
-	invCheckPeriod uint, baseAppOptions ...func(*bam.BaseApp)) *UsdxApp {
+// NewKavaApp is a constructor function for kavaApp
+func NewKavaApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest bool,
+	invCheckPeriod uint, baseAppOptions ...func(*bam.BaseApp)) *KavaApp {
 
 	// First define the top level codec that will be shared by the different modules
 	cdc := MakeCodec()
@@ -146,7 +146,7 @@ func NewUsdxApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 	bApp.SetAppVersion(version.Version)
 
 	// Here you initialize your application with the store keys it requires
-	var app = &UsdxApp{
+	var app = &KavaApp{
 		BaseApp:          bApp,
 		cdc:              cdc,
 		invCheckPeriod:   invCheckPeriod,
@@ -304,23 +304,23 @@ func NewUsdxApp(logger log.Logger, db dbm.DB, traceStore io.Writer, loadLatest b
 }
 
 // BeginBlocker application updates every begin block
-func (app *UsdxApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
+func (app *KavaApp) BeginBlocker(ctx sdk.Context, req abci.RequestBeginBlock) abci.ResponseBeginBlock {
 	return app.mm.BeginBlock(ctx, req)
 }
 
 // EndBlocker application updates every end block
-func (app *UsdxApp) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
+func (app *KavaApp) EndBlocker(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
 	return app.mm.EndBlock(ctx, req)
 }
 
 // InitChainer application update at chain initialization
-func (app *UsdxApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
+func (app *KavaApp) InitChainer(ctx sdk.Context, req abci.RequestInitChain) abci.ResponseInitChain {
 	var genesisState GenesisState
 	app.cdc.MustUnmarshalJSON(req.AppStateBytes, &genesisState)
 	return app.mm.InitGenesis(ctx, genesisState)
 }
 
 // LoadHeight load a particular height
-func (app *UsdxApp) LoadHeight(height int64) error {
+func (app *KavaApp) LoadHeight(height int64) error {
 	return app.LoadVersion(height, app.keyMain)
 }

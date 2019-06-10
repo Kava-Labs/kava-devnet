@@ -13,7 +13,7 @@ import (
 // StableDenom asset code of the dollar-denominated debt coin
 const StableDenom = "usdx" // TODO allow to be changed
 // GovDenom asset code of the governance coin
-const GovDenom = "xrs"
+const GovDenom = "kava"
 
 // Keeper cdp Keeper
 type Keeper struct {

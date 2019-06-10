@@ -8,8 +8,10 @@ import (
 )
 
 const (
+	// MaxAuctionDuration max length of auction, in blocks
 	MaxAuctionDuration endTime = 2 * 24 * 3600 / 5 // roughly 2 days, at 5s block time // 34560
-	BidDuration        endTime = 3 * 3600 / 5      // roughly 3 hours, at 5s block time TODO better name // 2160
+	// BidDuration how long an auction gets extended when someone bids, in blocks
+	BidDuration endTime = 3 * 3600 / 5 // roughly 3 hours, at 5s block time TODO better name // 2160
 )
 
 // Auction is an interface to several types of auction.
@@ -33,8 +35,10 @@ type BaseAuction struct {
 	MaxEndTime endTime        // Maximum closing time. Auctions can close before this but never after.
 }
 
+// ID type for auction IDs
 type ID uint64
 
+// NewIDFromString generate new auction ID from a string
 func NewIDFromString(s string) (ID, error) {
 	n, err := strconv.ParseUint(s, 10, 64) // copied from how the gov module rest handler's parse proposal IDs
 	if err != nil {
@@ -55,8 +59,13 @@ type bankOutput struct {
 	Coin    sdk.Coin
 }
 
-func (a BaseAuction) GetID() ID           { return a.ID }
-func (a *BaseAuction) SetID(id ID)        { a.ID = id }
+// GetID getter for auction ID
+func (a BaseAuction) GetID() ID { return a.ID }
+
+// SetID setter for auction ID
+func (a *BaseAuction) SetID(id ID) { a.ID = id }
+
+// GetEndTime getter for auction end time
 func (a BaseAuction) GetEndTime() endTime { return a.EndTime }
 
 // GetPayout implements Auction

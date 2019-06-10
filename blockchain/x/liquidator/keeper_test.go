@@ -7,8 +7,8 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/stretchr/testify/require"
 
-	"github.com/kava-labs/usdx/blockchain/x/cdp"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
+	"github.com/kava-labs/kava-devnet/blockchain/x/cdp"
+	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
 )
 
 func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {

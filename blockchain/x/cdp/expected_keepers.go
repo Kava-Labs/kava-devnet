@@ -2,7 +2,7 @@ package cdp
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
+	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
 )
 
 type bankKeeper interface {

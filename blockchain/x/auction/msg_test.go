@@ -14,11 +14,11 @@ func TestMsgPlaceBid_ValidateBasic(t *testing.T) {
 		msg        MsgPlaceBid
 		expectPass bool
 	}{
-		{"normal", MsgPlaceBid{0, addr, sdk.NewInt64Coin("usdx", 10), sdk.NewInt64Coin("xrs", 20)}, true},
-		{"emptyAddr", MsgPlaceBid{0, sdk.AccAddress{}, sdk.NewInt64Coin("usdx", 10), sdk.NewInt64Coin("xrs", 20)}, false},
-		{"negativeBid", MsgPlaceBid{0, addr, sdk.Coin{"usdx", sdk.NewInt(-10)}, sdk.NewInt64Coin("xrs", 20)}, false},
-		{"negativeLot", MsgPlaceBid{0, addr, sdk.NewInt64Coin("usdx", 10), sdk.Coin{"xrs", sdk.NewInt(-20)}}, false},
-		{"zerocoins", MsgPlaceBid{0, addr, sdk.NewInt64Coin("usdx", 0), sdk.NewInt64Coin("xrs", 0)}, true},
+		{"normal", MsgPlaceBid{0, addr, sdk.NewInt64Coin("usdx", 10), sdk.NewInt64Coin("kava", 20)}, true},
+		{"emptyAddr", MsgPlaceBid{0, sdk.AccAddress{}, sdk.NewInt64Coin("usdx", 10), sdk.NewInt64Coin("kava", 20)}, false},
+		{"negativeBid", MsgPlaceBid{0, addr, sdk.Coin{"usdx", sdk.NewInt(-10)}, sdk.NewInt64Coin("kava", 20)}, false},
+		{"negativeLot", MsgPlaceBid{0, addr, sdk.NewInt64Coin("usdx", 10), sdk.Coin{"kava", sdk.NewInt(-20)}}, false},
+		{"zerocoins", MsgPlaceBid{0, addr, sdk.NewInt64Coin("usdx", 0), sdk.NewInt64Coin("kava", 0)}, true},
 	}
 	for _, tc := range tests {
 		t.Run(tc.name, func(t *testing.T) {

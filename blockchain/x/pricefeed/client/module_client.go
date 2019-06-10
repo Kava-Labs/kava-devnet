@@ -2,7 +2,7 @@ package client
 
 import (
 	"github.com/cosmos/cosmos-sdk/client"
-	pricefeedcmd "github.com/kava-labs/usdx/blockchain/x/pricefeed/client/cli"
+	pricefeedcmd "github.com/kava-labs/kava-devnet/blockchain/x/pricefeed/client/cli"
 	"github.com/spf13/cobra"
 	amino "github.com/tendermint/go-amino"
 )

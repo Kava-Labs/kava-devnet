@@ -1,34 +1,40 @@
-# USDX
+# Kava
 
-[![CircleCI](https://circleci.com/gh/Kava-Labs/usdx/tree/master.svg?style=shield)](https://circleci.com/gh/Kava-Labs/usdx/tree/master)
-[![Go Report Card](https://goreportcard.com/badge/github.com/kava-labs/usdx)](https://goreportcard.com/report/github.com/kava-labs/usdx)
-[![API Reference](https://godoc.org/github.com/Kava-Labs/usdx?status.svg
-)](https://godoc.org/github.com/Kava-Labs/usdx)
-[![license](https://img.shields.io/github/license/Kava-Labs/usdx.svg)](https://github.com/Kava-Labs/usdx/blob/master/LICENSE)
+[![CircleCI](https://circleci.com/gh/Kava-Labs/kava-devnet/tree/master.svg?style=shield)](https://circleci.com/gh/Kava-Labs/kava-devnet/tree/master)
+[![Go Report Card](https://goreportcard.com/badge/github.com/kava-labs/kava-devnet)](https://goreportcard.com/report/github.com/kava-labs/kava-devnet)
+[![API Reference](https://godoc.org/github.com/Kava-Labs/kava-devnet?status.svg
+)](https://godoc.org/github.com/Kava-Labs/kava-devnet)
+[![license](https://img.shields.io/github/license/Kava-Labs/kava-devnet.svg)](https://github.com/Kava-Labs/kava-devnet/blob/master/LICENSE)
 
 A protocol for creating a collateral-backed stablecoin using any digital asset. Built on the [cosmos-sdk](https://github.com/cosmos/cosmos-sdk).
 
 ## Quick Start
 
-To read about the design of USDX, see [here](./spec/usdx.md).
+To read about the design of Kava, see [here](./spec/kava.md).
 
 ### Installing
   To install, clone the repo and go to the new directory.
-
-    go install ./blockchain/cmd/usdxd ./blockchain/cmd/usdxcli
+    cd blockchain
+    go install ./cmd/kavad ./cmd/kavacli
 
 For local development:
 
-    usdxd init --chain-id usdx-test testing
-    usdxcli keys add alice
+    kavad init --chain-id kava-test testing
+    kavacli keys add alice
     # enter a new password
     # re-enter password
-    usdxd add-genesis-account $(usdxcli keys show alice -a) 10xrs,1oracle,100000000stake
-    usdxd gentx --name alice
+    kavad add-genesis-account $(kavacli keys show alice -a) 10kava,1oracle,100000000stake
+    kavad gentx --name alice
     # enter password
-    usdxd collect-gentxs
-    usdxcli config trust-node true
-    usdxd start
+    kavad collect-gentxs
+    kavacli config trust-node true
+    kavad start
 
-Check account balance using `usdxcli query account $(usdxcli keys show alice -a)`
-Check which assets are in the pricefeed `usdxcli query pricefeed assets`
+Check account balance using `kavacli query account $(kavacli keys show alice -a)`
+Check which assets are in the pricefeed `kavacli query pricefeed assets`
+
+
+### Testnet
+
+  To join the latest testnet. see [here](https://github.com/Kava-Labs/kava)
+
