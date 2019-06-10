@@ -37,5 +37,5 @@ Check which assets are in the pricefeed `kavacli query pricefeed assets`
 
 ### Testnet
 
-  To join the latest testnet. see [here](https://github.com/Kava-Labs/kava)
+  To join the latest testnet, see [here](https://github.com/Kava-Labs/kava)
 
