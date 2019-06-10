@@ -14,6 +14,7 @@ To read about the design of Kava, see [here](./spec/kava.md).
 
 ### Installing
   To install, clone the repo and go to the new directory.
+    
     cd blockchain
     go install ./cmd/kavad ./cmd/kavacli
 
