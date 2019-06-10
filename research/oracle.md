@@ -151,7 +151,7 @@ Scenario 2
   Hopefully cosmos-sdk makes this more managable! -->
 
 Price feed mechanism:
-A group of whitelisted oracles are posting prices to the USDX blockchain for each given collateral type:
+A group of whitelisted oracles are posting prices to the kava blockchain for each given collateral type:
 * COL1:USD
 * COL2:USD
 * ...
@@ -168,4 +168,4 @@ MsgPostPrice{
 
 These transactions are submitted to the `pricefeed` module and commited to a block. The block number that the price was commited at is appended to the transaction.
 
-The `pricefeed` module gathers are MsgPostPrice transactions from the previous n blocks, and selects the most recent MsgPostPrice transaction from each validator (measured by the transaction with the highest blocknumber). If a majority of price oracles have submitted MsgPostPrice transactions, the `pricefeed` module takes the median of these prices and calls `UpdatePrice` on the keeper. This updates the price in storage of the `pricefeed` module and becomes the latest price for that collateral type in the USDX CDP system.
+The `pricefeed` module gathers are MsgPostPrice transactions from the previous n blocks, and selects the most recent MsgPostPrice transaction from each validator (measured by the transaction with the highest blocknumber). If a majority of price oracles have submitted MsgPostPrice transactions, the `pricefeed` module takes the median of these prices and calls `UpdatePrice` on the keeper. This updates the price in storage of the `pricefeed` module and becomes the latest price for that collateral type in the CDP system.

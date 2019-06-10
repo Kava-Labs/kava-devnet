@@ -3,10 +3,10 @@ jobs:
   build:
     docker:
       - image: circleci/golang:1.12
-    working_directory: ~/usdx/blockchain
+    working_directory: ~/kava-devnet/blockchain
     steps:
       - checkout:
-          path: ~/usdx
+          path: ~/kava-devnet
       - restore_cache:
           keys: ['go-mod-v1-{{ checksum "go.sum" }}']
       - run: go get -d

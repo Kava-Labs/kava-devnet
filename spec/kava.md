@@ -1,6 +1,6 @@
-# USDX
+# Kava
 
-USDX is a collateralized debt position system built on Cosmos.
+Kava is a collateralized debt position system built on Cosmos.
 
 ## Background
 

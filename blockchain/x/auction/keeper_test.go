@@ -14,7 +14,7 @@ func TestKeeper_SetGetDeleteAuction(t *testing.T) {
 	header := abci.Header{Height: mapp.LastBlockHeight() + 1}
 	mapp.BeginBlock(abci.RequestBeginBlock{Header: header}) // Without this it panics about "invalid memory address or nil pointer dereference"
 	ctx := mapp.BaseApp.NewContext(false, header)
-	auction, _ := NewForwardAuction(addresses[0], sdk.NewInt64Coin("usdx", 100), sdk.NewInt64Coin("xrs", 0), endTime(1000))
+	auction, _ := NewForwardAuction(addresses[0], sdk.NewInt64Coin("usdx", 100), sdk.NewInt64Coin("kava", 0), endTime(1000))
 	id := ID(5)
 	auction.SetID(id)
 

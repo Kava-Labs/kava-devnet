@@ -5,7 +5,7 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/x/params"
 
-	"github.com/kava-labs/usdx/blockchain/x/auction"
+	"github.com/kava-labs/kava-devnet/blockchain/x/auction"
 )
 
 type Keeper struct {

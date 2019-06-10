@@ -5,7 +5,7 @@ import (
 	"os"
 	"path"
 
-	"github.com/kava-labs/usdx/blockchain/app"
+	"github.com/kava-labs/kava-devnet/blockchain/app"
 
 
 	"github.com/cosmos/cosmos-sdk/client"
@@ -49,14 +49,14 @@ import (
 	stakingclient "github.com/cosmos/cosmos-sdk/x/staking/client"
 	staking "github.com/cosmos/cosmos-sdk/x/staking/client/rest"
 
-	auctionclient "github.com/kava-labs/usdx/blockchain/x/auction/client"
-	auctionrest "github.com/kava-labs/usdx/blockchain/x/auction/client/rest"
-	cdpclient "github.com/kava-labs/usdx/blockchain/x/cdp/client"
-	cdprest "github.com/kava-labs/usdx/blockchain/x/cdp/client/rest"
-	liquidatorclient "github.com/kava-labs/usdx/blockchain/x/liquidator/client"
-	liquidatorrest "github.com/kava-labs/usdx/blockchain/x/liquidator/client/rest"
-	priceclient "github.com/kava-labs/usdx/blockchain/x/pricefeed/client"
-	pricerest "github.com/kava-labs/usdx/blockchain/x/pricefeed/client/rest"
+	auctionclient "github.com/kava-labs/kava-devnet/blockchain/x/auction/client"
+	auctionrest "github.com/kava-labs/kava-devnet/blockchain/x/auction/client/rest"
+	cdpclient "github.com/kava-labs/kava-devnet/blockchain/x/cdp/client"
+	cdprest "github.com/kava-labs/kava-devnet/blockchain/x/cdp/client/rest"
+	liquidatorclient "github.com/kava-labs/kava-devnet/blockchain/x/liquidator/client"
+	liquidatorrest "github.com/kava-labs/kava-devnet/blockchain/x/liquidator/client/rest"
+	priceclient "github.com/kava-labs/kava-devnet/blockchain/x/pricefeed/client"
+	pricerest "github.com/kava-labs/kava-devnet/blockchain/x/pricefeed/client/rest"
 
 
 	_ "github.com/cosmos/gaia/cmd/gaiacli/statik"
@@ -86,8 +86,8 @@ func main() {
 	}
 
 	rootCmd := &cobra.Command{
-		Use:   "usdxcli",
-		Short: "USDX command line interface",
+		Use:   "kavacli",
+		Short: "Kava command line interface",
 	}
 
 	// Add --chain-id to persistent flags and mark it required
@@ -111,7 +111,7 @@ func main() {
 		client.NewCompletionCmd(rootCmd, true),
 	)
 
-	executor := cli.PrepareMainCmd(rootCmd, "USDX", app.DefaultCLIHome)
+	executor := cli.PrepareMainCmd(rootCmd, "kava", app.DefaultCLIHome)
 	err := executor.Execute()
 	if err != nil {
 		panic(err)

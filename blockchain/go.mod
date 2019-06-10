@@ -1,4 +1,4 @@
-module github.com/kava-labs/usdx/blockchain
+module github.com/kava-labs/kava-devnet/blockchain
 
 go 1.12
 

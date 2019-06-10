@@ -109,6 +109,7 @@ github.com/jessevdk/go-flags v0.0.0-20141203071132-1679536dcc89/go.mod h1:4FA24M
 github.com/jmhodges/levigo v1.0.0/go.mod h1:Q6Qx+uH3RAqyK4rFQroq9RL7mdkABMcfhEI+nNuzMJQ=
 github.com/jrick/logrotate v1.0.0/go.mod h1:LNinyqDIJnpAur+b8yyulnQw/wDuN1+BYKlTRt3OuAQ=
 github.com/julienschmidt/httprouter v1.2.0/go.mod h1:SYymIcj16QtmaHHD7aYtjjsJG7VTCxuUUipMqKk8s4w=
+github.com/kava-labs/kava-devnet v0.0.0-20190607211347-daa732950566 h1:jNxVUXNbtnQnJWUjcPumseuke/04cNxltqpEh9mPXG4=
 github.com/kava-labs/usdx v0.0.0-20190423185505-e61d12492f36 h1:8S2nd1/lTK+fB/nM+p7eD6yov2zAcyxHaZ70g0hj+MU=
 github.com/kava-labs/usdx v0.0.0-20190530163409-b82a2c392e19 h1:FqMKaFcK5gNbaTz/aclGzKl4kKfgUwrmnbtXfcEhPR4=
 github.com/kava-labs/usdx v0.0.0-20190605155523-f855916349cc h1:0Pj7PZALZ4HLwi6i4FgfcMJ5bfCZfHLgthyRAi50W28=

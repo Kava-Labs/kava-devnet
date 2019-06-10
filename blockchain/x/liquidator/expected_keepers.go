@@ -3,8 +3,8 @@ package liquidator
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 
-	"github.com/kava-labs/usdx/blockchain/x/auction"
-	"github.com/kava-labs/usdx/blockchain/x/cdp"
+	"github.com/kava-labs/kava-devnet/blockchain/x/auction"
+	"github.com/kava-labs/kava-devnet/blockchain/x/cdp"
 )
 
 type cdpKeeper interface {

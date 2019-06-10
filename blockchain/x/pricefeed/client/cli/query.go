@@ -5,7 +5,7 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/kava-labs/usdx/blockchain/x/pricefeed"
+	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
 	"github.com/spf13/cobra"
 )
 
