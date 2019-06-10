@@ -14,8 +14,8 @@ To read about the design of Kava, see [here](./spec/kava.md).
 
 ### Installing
   To install, clone the repo and go to the new directory.
-
-    go install ./blockchain/cmd/kavad ./blockchain/cmd/kavacli
+    cd blockchain
+    go install ./cmd/kavad ./cmd/kavacli
 
 For local development:
 
@@ -23,7 +23,7 @@ For local development:
     kavacli keys add alice
     # enter a new password
     # re-enter password
-    kavad add-genesis-account $(kavad keys show alice -a) 10kava,1oracle,100000000stake
+    kavad add-genesis-account $(kavacli keys show alice -a) 10kava,1oracle,100000000stake
     kavad gentx --name alice
     # enter password
     kavad collect-gentxs
