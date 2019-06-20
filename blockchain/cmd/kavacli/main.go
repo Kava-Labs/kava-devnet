@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"os"
 	"path"
 
@@ -15,8 +14,6 @@ import (
 	"github.com/cosmos/cosmos-sdk/client/tx"
 	sdk "github.com/cosmos/cosmos-sdk/types"
 	"github.com/cosmos/cosmos-sdk/version"
-
-	"github.com/rakyll/statik/fs"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 
@@ -168,7 +165,6 @@ func txCmd(cdc *amino.Codec, mc []sdk.ModuleClient) *cobra.Command {
 }
 
 func registerRoutes(rs *lcd.RestServer) {
-	registerSwaggerUI(rs)
 	rpc.RegisterRoutes(rs.CliCtx, rs.Mux)
 	tx.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
 	auth.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc, at.StoreKey)
@@ -182,15 +178,6 @@ func registerRoutes(rs *lcd.RestServer) {
 	auctionrest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
 	cdprest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
 	liquidatorrest.RegisterRoutes(rs.CliCtx, rs.Mux, rs.Cdc)
-}
-
-func registerSwaggerUI(rs *lcd.RestServer) {
-	statikFS, err := fs.New()
-	if err != nil {
-		panic(err)
-	}
-	staticServer := http.FileServer(statikFS)
-	rs.Mux.PathPrefix("/swagger-ui/").Handler(http.StripPrefix("/swagger-ui/", staticServer))
 }
 
 func initConfig(cmd *cobra.Command) error {
