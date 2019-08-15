@@ -1,4 +1,4 @@
-package pricefeed
+package types
 
 import (
 	"fmt"
