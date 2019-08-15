@@ -5,19 +5,11 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
+
 )
 
 // TODO refactor constants to app.go
 const (
-	// ModuleKey is the name of the module
-	ModuleName = "pricefeed"
-
-	// StoreKey is the store key string for gov
-	StoreKey = ModuleName
-
-	// RouterKey is the message route for gov
-	RouterKey = ModuleName
-
 	// QuerierRoute is the querier route for gov
 	QuerierRoute = ModuleName
 
@@ -39,43 +31,61 @@ const (
 
 // Keeper struct for pricefeed module
 type Keeper struct {
-	storeKey  sdk.StoreKey
-	cdc       *codec.Codec
+	// The reference to the Paramstore to get and set pricefeed specific params
+	paramSpace ParamSubspace
+	// The keys used to access the stores from Context
+	storeKey sdk.StoreKey
+	// Codec for binary encoding/decoding
+	cdc *codec.Codec
+	// Reserved codespace
 	codespace sdk.CodespaceType
 }
 
-// NewKeeper returns a new keeper for the pricefeed modle
-func NewKeeper(storeKey sdk.StoreKey, cdc *codec.Codec, codespace sdk.CodespaceType) Keeper {
+// NewKeeper returns a new keeper for the pricefeed module. It handles:
+// - adding oracles
+// - adding/removing assets from the pricefeed
+func NewKeeper(
+		storeKey sdk.StoreKey, cdc *codec.Codec, paramSpace ParamSubspace, codespace sdk.CodespaceType,
+	) Keeper {
 	return Keeper{
-		storeKey:  storeKey,
-		cdc:       cdc,
-		codespace: codespace,
+		paramSpace:   paramSpace,
+		storeKey:     storeKey,
+		cdc:          cdc,
+		codespace:    codespace,
 	}
 }
 
-// AddOracle adds an Oracle to the store
-func (k Keeper) AddOracle(ctx sdk.Context, address string) {
+// // AddOracle adds an Oracle to the store
+// func (k Keeper) AddOracle(ctx sdk.Context, address string) {
 
-	oracles := k.GetOracles(ctx)
-	oracles = append(oracles, Oracle{OracleAddress: address})
-	store := ctx.KVStore(k.storeKey)
-	store.Set(
-		[]byte(OraclePrefix), k.cdc.MustMarshalBinaryBare(oracles),
-	)
+// 	oracles := k.GetOracles(ctx)
+// 	oracles = append(oracles, Oracle{OracleAddress: address})
+// 	store := ctx.KVStore(k.storeKey)
+// 	store.Set(
+// 		[]byte(OraclePrefix), k.cdc.MustMarshalBinaryBare(oracles),
+// 	)
+// }
+
+// // AddAsset adds an asset to the store
+// func (k Keeper) AddAsset(
+// 	ctx sdk.Context,
+// 	assetCode string,
+// 	desc string,
+// ) {
+// 	assets := k.GetAssets(ctx)
+// 	assets = append(assets, Asset{AssetCode: assetCode, Description: desc})
+// 	store := ctx.KVStore(k.storeKey)
+// 	store.Set(
+// 		[]byte(AssetPrefix), k.cdc.MustMarshalBinaryBare(assets),
+// 	)
+// }
+
+func (k Keeper) SetAssetParams(ctx sdk.Context, ap AssetParams) {
+	k.paramSpace.Set(ctx, ParamStoreKeyAssets, &ap)
 }
 
-// AddAsset adds an asset to the store
-func (k Keeper) AddAsset(
-	ctx sdk.Context,
-	assetCode string,
-	desc string,
-) {
-	assets := k.GetAssets(ctx)
-	assets = append(assets, Asset{AssetCode: assetCode, Description: desc})
-	store := ctx.KVStore(k.storeKey)
-	store.Set(
-		[]byte(AssetPrefix), k.cdc.MustMarshalBinaryBare(assets),
-	)
+func (k Keeper) SetOracleParams(ctx sdk.Context, op OracleParams) {
+	k.paramSpace.Set(ctx, ParamStoreKeyAssets, &op)
 }
 
 // SetPrice updates the posted price for a specific oracle
@@ -153,7 +163,7 @@ func (k Keeper) SetCurrentPrices(ctx sdk.Context) sdk.Error {
 			// If there's an even number of prices
 			if l%2 == 0 {
 				// TODO make sure this is safe.
-				// Since it's a price and not a blance, division with precision loss is OK.
+				// Since it's a price and not a balance, division with precision loss is OK.
 				price1 := notExpiredPrices[l/2-1].Price
 				price2 := notExpiredPrices[l/2].Price
 				sum := price1.Add(price2)
@@ -183,22 +193,30 @@ func (k Keeper) SetCurrentPrices(ctx sdk.Context) sdk.Error {
 	return nil
 }
 
+func (k Keeper) GetOracleParams(ctx sdk.Context) OracleParams {
+	var op OracleParams
+	k.paramSpace.Get(ctx, ParamStoreKeyOracles, &op)
+	return op
+}
+
 // GetOracles returns the oracles in the pricefeed store
 func (k Keeper) GetOracles(ctx sdk.Context) []Oracle {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get([]byte(OraclePrefix))
-	var oracles []Oracle
-	k.cdc.MustUnmarshalBinaryBare(bz, &oracles)
-	return oracles
+	var op OracleParams
+	k.paramSpace.Get(ctx, ParamStoreKeyOracles, &op)
+	return op.Oracles
+}
+
+func (k Keeper) GetAssetParams(ctx sdk.Context) AssetParams {
+	var ap AssetParams
+	k.paramSpace.Get(ctx, ParamStoreKeyAssets, &ap)
+	return ap
 }
 
 // GetAssets returns the assets in the pricefeed store
 func (k Keeper) GetAssets(ctx sdk.Context) []Asset {
-	store := ctx.KVStore(k.storeKey)
-	bz := store.Get([]byte(AssetPrefix))
-	var assets []Asset
-	k.cdc.MustUnmarshalBinaryBare(bz, &assets)
-	return assets
+	var ap AssetParams
+	k.paramSpace.Get(ctx, ParamStoreKeyAssets, &ap)
+	return ap.Assets
 }
 
 // GetAsset returns the asset if it is in the pricefeed system

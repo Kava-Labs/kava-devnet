@@ -22,25 +22,17 @@ type testHelper struct {
 func getMockApp(t *testing.T, numGenAccs int, genState GenesisState, genAccs []auth.Account) testHelper {
 	mApp := mock.NewApp()
 	RegisterCodec(mApp.Cdc)
-	keyPricefeed := sdk.NewKVStoreKey("pricefeed")
-	keeper := NewKeeper(keyPricefeed, mApp.Cdc, DefaultCodespace)
+	keyPricefeed := sdk.NewKVStoreKey(StoreKey)
+	pk := mApp.ParamsKeeper
+	keeper := NewKeeper(keyPricefeed, mApp.Cdc, pk.Subspace(DefaultParamspace).WithKeyTable(ParamKeyTable()), DefaultCodespace)
 
 	// Register routes
 	mApp.Router().AddRoute(RouterKey, NewHandler(keeper))
-
-	// Add endblocker
-	mApp.SetEndBlocker(
-		func(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
-			tags := EndBlocker(ctx, keeper)
-			return abci.ResponseEndBlock{
-				Tags: tags,
-			}
-		},
-	)
+	mApp.SetEndBlocker(getEndBlocker(keeper))
 
 	require.NoError(t, mApp.CompleteSetup(keyPricefeed))
 
-	valTokens := sdk.TokensFromTendermintPower(42)
+	valTokens := sdk.TokensFromConsensusPower(42)
 	var (
 		addrs    []sdk.AccAddress
 		pubKeys  []crypto.PubKey
@@ -54,4 +46,12 @@ func getMockApp(t *testing.T, numGenAccs int, genState GenesisState, genAccs []a
 
 	mock.SetGenesis(mApp, genAccs)
 	return testHelper{mApp, keeper, addrs, pubKeys, privKeys}
+}
+
+// gov and staking endblocker
+func getEndBlocker(keeper Keeper) sdk.EndBlocker {
+	return func(ctx sdk.Context, req abci.RequestEndBlock) abci.ResponseEndBlock {
+		EndBlocker(ctx, keeper)
+		return abci.ResponseEndBlock{}
+	}
 }

@@ -3,18 +3,28 @@ module github.com/kava-labs/kava-devnet/blockchain
 go 1.12
 
 require (
-	github.com/cosmos/cosmos-sdk v0.28.2-0.20190521100210-dd89c329516e
-	github.com/cosmos/gaia v0.0.1-0.20190524130037-594c2adbe776
-	github.com/cosmos/sdk-application-tutorial v0.0.0-20190313150002-3616d9384466
-	github.com/gorilla/mux v1.7.2
-	github.com/rakyll/statik v0.1.6
-	github.com/sacOO7/go-logger v0.0.0-20180719173527-9ac9add5a50d // indirect
-	github.com/sacOO7/gowebsocket v0.0.0-20180719182212-1436bb906a4e
-	github.com/spf13/cobra v0.0.3
+	github.com/bartekn/go-bip39 v0.0.0-20171116152956-a05967ea095d
+	github.com/bgentry/speakeasy v0.1.0
+	github.com/btcsuite/btcd v0.0.0-20190115013929-ed77733ec07d
+	github.com/cosmos/cosmos-sdk v0.36.0-rc1
+	github.com/cosmos/go-bip39 v0.0.0-20180618194314-52158e4697b8
+	github.com/cosmos/ledger-cosmos-go v0.10.3
+	github.com/gogo/protobuf v1.2.1
+	github.com/golang/mock v1.3.1-0.20190508161146-9fa652df1129
+	github.com/golang/protobuf v1.3.0
+	github.com/gorilla/mux v1.7.0
+	github.com/mattn/go-isatty v0.0.6
+	github.com/pelletier/go-toml v1.2.0
+	github.com/pkg/errors v0.8.1
+	github.com/rakyll/statik v0.1.4
+	github.com/spf13/cobra v0.0.5
+	github.com/spf13/pflag v1.0.3
 	github.com/spf13/viper v1.3.2
 	github.com/stretchr/testify v1.3.0
+	github.com/tendermint/btcd v0.1.1
+	github.com/tendermint/crypto v0.0.0-20180820045704-3764759f34a5
 	github.com/tendermint/go-amino v0.15.0
-	github.com/tendermint/tendermint v0.31.5
+	github.com/tendermint/iavl v0.12.3-0.20190712145259-c834d3192b52
+	github.com/tendermint/tendermint v0.32.1
+	gopkg.in/yaml.v2 v2.2.2
 )
-
-replace golang.org/x/crypto => github.com/tendermint/crypto v0.0.0-20180820045704-3764759f34a5
