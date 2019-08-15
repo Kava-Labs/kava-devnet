@@ -3,11 +3,32 @@ package cli
 import (
 	"fmt"
 
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/context"
 	"github.com/cosmos/cosmos-sdk/codec"
-	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
+	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed/types"
 	"github.com/spf13/cobra"
 )
+
+// GetQueryCmd returns the cli query commands for this module
+func GetQueryCmd(storeKey string, cdc *codec.Codec) *cobra.Command {
+	// Group nameservice queries under a subcommand
+	pricefeedQueryCmd := &cobra.Command{
+		Use:                        types.ModuleName,
+		Short:                      "Querying commands for the pricefeed module",
+		DisableFlagParsing:         true,
+		SuggestionsMinimumDistance: 2,
+		RunE:                       client.ValidateCmd,
+	}
+
+	pricefeedQueryCmd.AddCommand(client.GetCommands(
+		GetCmdCurrentPrice(storeKey, cdc),
+		GetCmdRawPrices(storeKey, cdc),
+		GetCmdAssets(storeKey, cdc),
+	)...)
+
+	return pricefeedQueryCmd
+}
 
 // GetCmdCurrentPrice queries the current price of an asset
 func GetCmdCurrentPrice(queryRoute string, cdc *codec.Codec) *cobra.Command {
@@ -18,13 +39,13 @@ func GetCmdCurrentPrice(queryRoute string, cdc *codec.Codec) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
 			assetCode := args[0]
-			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/price/%s", queryRoute, assetCode), nil)
+			res, _, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/price/%s", queryRoute, assetCode), nil)
 			if err != nil {
 				fmt.Printf("error when querying current price - %s", err)
-				fmt.Printf("could not get current price for - %s \n", string(assetCode))
+				fmt.Printf("could not get current price for - %s \n", assetCode)
 				return nil
 			}
-			var out pricefeed.CurrentPrice
+			var out types.CurrentPrice
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
 		},
@@ -40,12 +61,12 @@ func GetCmdRawPrices(queryRoute string, cdc *codec.Codec) *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
 			assetCode := args[0]
-			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/rawprices/%s", queryRoute, assetCode), nil)
+			res, _, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/rawprices/%s", queryRoute, assetCode), nil)
 			if err != nil {
-				fmt.Printf("could not get raw prices for - %s \n", string(assetCode))
+				fmt.Printf("could not get raw prices for - %s \n", assetCode)
 				return nil
 			}
-			var out pricefeed.QueryRawPricesResp
+			var out types.QueryRawPricesResp
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
 		},
@@ -59,12 +80,12 @@ func GetCmdAssets(queryRoute string, cdc *codec.Codec) *cobra.Command {
 		Short: "get the assets in the pricefeed",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cliCtx := context.NewCLIContext().WithCodec(cdc)
-			res, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/assets", queryRoute), nil)
+			res, _, err := cliCtx.QueryWithData(fmt.Sprintf("custom/%s/assets", queryRoute), nil)
 			if err != nil {
 				fmt.Printf("could not get assets")
 				return nil
 			}
-			var out pricefeed.QueryAssetsResp
+			var out types.QueryAssetsResp
 			cdc.MustUnmarshalJSON(res, &out)
 			return cliCtx.PrintOutput(out)
 		},
