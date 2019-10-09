@@ -4,9 +4,9 @@ Kava is a collateralized debt position system built on Cosmos. The goal of Kava 
 
 ## Background
 
-Measured by encumbered collateral, debt issuance for the purpose of leveraged exposure has been the most succesful secondary financial usecase of cryptocurrencies. MakerDao, and the associated DeFi ecosystem on Ethereum, represent arguably the best example of product-market fit for any blockchain product or service that is not a base-layer protocol. While the number of users of these products is generally small, the potential for synthetic asset issuance (USD pegged stablecoins, or debt denominated in a stable basket of goods) that spans jurisdictions and runs largely autonomously is large.
+Measured by encumbered collateral, debt issuance for the purpose of leveraged exposure has been the most successful secondary financial usecase of cryptocurrencies. MakerDao, and the associated DeFi ecosystem on Ethereum, represent arguably the best example of product-market fit for any blockchain product or service that is not a base-layer protocol. While the number of users of these products is generally small, the potential for synthetic asset issuance (USD pegged stablecoins, or debt denominated in a stable basket of goods) that spans jurisdictions and runs largely autonomously is large.
 
-Cosmos (Gaia) is a new blockchain protocol that uses Tendermint BFT consensus and is designed with a hub-and-spoke model of cross-blockchain interoperabilty that emphasizes composability and self-sovereignty of application specific blockchains. We believe one of the primary financial usecases for the Cosmos ecosystem will be the the issuance of decentralized pegged assets like [pegged Bitcoin] (https://github.com/nomic-io/bitcoin-peg/blob/master/bitcoinPeg.md), as well as other pegged crpyto-native and traditional financial assets.
+Cosmos (Gaia) is a new blockchain protocol that uses Tendermint BFT consensus and is designed with a hub-and-spoke model of cross-blockchain interoperabilty that emphasizes composability and self-sovereignty of application specific blockchains. We believe one of the primary financial usecases for the Cosmos ecosystem will be the the issuance of decentralized pegged assets like [pegged Bitcoin](https://github.com/nomic-io/bitcoin-peg/blob/master/bitcoinPeg.md), as well as other pegged crpyto-native and traditional financial assets.
 
 We are building a blockchain on the cosmos-sdk for the purpose of issuing Collateralized Debt Positions (CDPs) for assets in the cosmos ecosystem, including assets pegged to external chains and assets built using the `cosmos-sdk`. The design of the CDP zone is inspired by Multi-Collateral Dai (https://github.com/makerdao/dss) and will allow users to lock their assets as collateral and draw a dollar-denominated debt (USDX) off of their collateral. We believe this zone is a useful addition to the Cosmos ecosystem, providing a native way for users to gain leveraged exposure to a basket of assets in the cosmos ecosystem, as well as to create a collateral-backed stablecoin that is native to Cosmos.
 
@@ -70,7 +70,7 @@ The Auction module implements three distinct auction types that control the supp
 
 **Reverse Auction** An auction where a buyer solicits decreasing bids for a particular item or lot of items. This auction type is used when governance tokens are sold (minted) in exchange for stablecoins, to cover shortfalls after failed collateral auctions.
 
-**Forward Reverse Auction** An auction where a buyer solicits increasing bids for a lot of goods, up to some ceiling. After the ceiling is reached, each bid lowers the amount of goods being sold for the ceiling  price. This type of auction is used when collateral is siezed from a risky CDP and sold for stablecoins to cover the debt.
+**Forward Reverse Auction** An auction where a buyer solicits increasing bids for a lot of goods, up to some ceiling. After the ceiling is reached, each bid lowers the amount of goods being sold for the ceiling  price. This type of auction is used when collateral is seized from a risky CDP and sold for stablecoins to cover the debt.
 
 #### Messages and Types
 
@@ -116,7 +116,7 @@ type ForwardReverseAuction struct {
 // MsgPlaceBid is the message type used to place a bid on any type of auction.
 type MsgPlaceBid struct {
   AuctionID ID
-  Bidder    sdk.AccAddress // This can be a buyer (who increments bid), or a seller (who decrements lot) TODO rename to be clearer?
+  Bidder    sdk.AccAddress // This can be a buyer (who increments bid), or a seller (who decrements lot)
   Bid       sdk.Coin
   Lot       sdk.Coin
 }
@@ -184,7 +184,7 @@ The system is secured by Kava, a staking and governance token. Staked Kava token
 The following parameters of the system are controlled by governance. Kava token holders are the governors of the system and can vote on governance proposals proportional to the amount of bonded (staked) Kava they hold.
 
 * The global debt limit - The total amount of USDX that can be created by CDPs.
-* Assets - The asssets that are eligible to be used in CDPs
+* Assets - The assets that are eligible to be used in CDPs
 * The debt limit for each Asset - The total amount of USDX that can be created by CDPs of a particular asset.
 * CDP fees per asset - the total APR charged on the USDX drawn off of a CDP for each asset type.
 * The USDX savings rate - the APR earned by USDX holders who bond their USDX in the savings module.
@@ -193,10 +193,10 @@ The following parameters of the system are controlled by governance. Kava token 
 
 ### Liquidation and Recolateralization
 
-In the event of a CDP falling below the required collateral ratio, that CDP will be siezed by the liquidator module. When a `lot` of collateral has been siezed due to liquidations, that collateral is auctioned by the auction module for stable tokens using a forward reverse auction. In normal times, this auction is expected to raise sufficient stable tokens to wipe out the debt originally held by the CDP owners, along with a small liquidation penalty that varies by asset.
+In the event of a CDP falling below the required collateral ratio, that CDP will be seized by the liquidator module. When a `lot` of collateral has been seized due to liquidations, that collateral is auctioned by the auction module for stable tokens using a forward reverse auction. In normal times, this auction is expected to raise sufficient stable tokens to wipe out the debt originally held by the CDP owners, along with a small liquidation penalty that varies by asset.
 
 In the event collateral auctions fail to raise the requisite amount of stable tokens, Kava tokens are auctioned by the auction module for stable tokens using a reverse auction until the global collateral ratio is reached. In this way, the Kava token serves as a lender of last resort in times of under-collateralization.
 
 ### System Governance and Risk Management
 
-The early parameterization of Kava will seek to minimize the risk of systematic under-collateralization, primarily because KAVA, the token which acts as lender of last resort, will have low liquidity compared to the collateral assets used in the system. Lowering risk will be accomplished by selecting only highly liquid collateral assets with a strong track record in the market, requiring a high collateralization ratio per asset, and selecting a relatively low value for the global debt limit. The exact parameters will be published shortly before mainnet, and because parameter upgrades can happen on-chain, the system will be tweaked continuously to maintain allignment with the goal of minimizing risk.
+The early parameterization of Kava will seek to minimize the risk of systematic under-collateralization, primarily because KAVA, the token which acts as lender of last resort, will have low liquidity compared to the collateral assets used in the system. Lowering risk will be accomplished by selecting only highly liquid collateral assets with a strong track record in the market, requiring a high collateralization ratio per asset, and selecting a relatively low value for the global debt limit. The exact parameters will be published shortly before mainnet, and because [parameter upgrades](https://github.com/cosmos/gaia/blob/master/docs/gaiacli.md#create-a-governance-proposal) can happen on-chain, the system can be tweaked continuously to maintain alignment with the goal of minimizing risk.
