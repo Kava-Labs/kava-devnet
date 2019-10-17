@@ -193,10 +193,19 @@ The following parameters of the system are controlled by governance. Kava token 
 
 ### Liquidation and Recolateralization
 
-In the event of a CDP falling below the required collateral ratio, that CDP will be seized by the liquidator module. When a `lot` of collateral has been seized due to liquidations, that collateral is auctioned by the auction module for stable tokens using a forward reverse auction. In normal times, this auction is expected to raise sufficient stable tokens to wipe out the debt originally held by the CDP owners, along with a small liquidation penalty that varies by asset.
+In the event of a CDP falling below the required collateral ratio, that CDP will be seized by the liquidator module. When a `lot` of collateral has been seized due to liquidations, that collateral is auctioned by the auction module for stable tokens using a forward reverse auction. In normal times, this auction is expected to raise sufficient stable tokens to wipe out the debt originally held by the CDP owners, along with a small liquidation penalty that varies by asset. The liquidation penalty is paid in Kava.
 
 In the event collateral auctions fail to raise the requisite amount of stable tokens, Kava tokens are auctioned by the auction module for stable tokens using a reverse auction until the global collateral ratio is reached. In this way, the Kava token serves as a lender of last resort in times of under-collateralization.
 
 ### System Governance and Risk Management
 
 The early parameterization of Kava will seek to minimize the risk of systematic under-collateralization, primarily because KAVA, the token which acts as lender of last resort, will have low liquidity compared to the collateral assets used in the system. Lowering risk will be accomplished by selecting only highly liquid collateral assets with a strong track record in the market, requiring a high collateralization ratio per asset, and selecting a relatively low value for the global debt limit. The exact parameters will be published shortly before mainnet, and because [parameter upgrades](https://github.com/cosmos/gaia/blob/master/docs/gaiacli.md#create-a-governance-proposal) can happen on-chain, the system can be tweaked continuously to maintain alignment with the goal of minimizing risk.
+
+### Reference Parameterization
+
+For the first collateral assets, the following parameters will serve as a guide for initial system parameterization. Note that these numbers are preliminary and can change due to community feedback and governance proposals.
+
+Collateralization ratio: 150%
+Stability fee: 5%
+Liquidation penalty: 12%
+USDX savings rate: 2%
