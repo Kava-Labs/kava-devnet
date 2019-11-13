@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/auth"
+	authexported "github.com/cosmos/cosmos-sdk/x/auth/exported"
 	"github.com/cosmos/cosmos-sdk/x/mock"
 	"github.com/stretchr/testify/require"
 	abci "github.com/tendermint/tendermint/abci/types"
@@ -19,7 +19,7 @@ type testHelper struct {
 	privKeys []crypto.PrivKey
 }
 
-func getMockApp(t *testing.T, numGenAccs int, genState GenesisState, genAccs []auth.Account) testHelper {
+func getMockApp(t *testing.T, numGenAccs int, genState GenesisState, genAccs []authexported.Account) testHelper {
 	mApp := mock.NewApp()
 	RegisterCodec(mApp.Cdc)
 	keyPricefeed := sdk.NewKVStoreKey(StoreKey)

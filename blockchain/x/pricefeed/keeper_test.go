@@ -14,7 +14,10 @@ func TestKeeper_SetGetAsset(t *testing.T) {
 	header := abci.Header{Height: helper.mApp.LastBlockHeight() + 1}
 	helper.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := helper.mApp.BaseApp.NewContext(false, abci.Header{})
-	helper.keeper.AddAsset(ctx, "tst", "test asset")
+	ap := AssetParams{
+		Assets: []Asset{Asset{AssetCode: "tst", Description: "the future of finance"}},
+	}
+	helper.keeper.SetAssetParams(ctx, ap)
 	assets := helper.keeper.GetAssets(ctx)
 	require.Equal(t, len(assets), 1)
 	require.Equal(t, assets[0].AssetCode, "tst")
@@ -22,7 +25,12 @@ func TestKeeper_SetGetAsset(t *testing.T) {
 	_, found := helper.keeper.GetAsset(ctx, "tst")
 	require.Equal(t, found, true)
 
-	helper.keeper.AddAsset(ctx, "tst2", "2nd test asset")
+	ap = AssetParams{
+		Assets: []Asset{
+			Asset{AssetCode: "tst", Description: "the future of finance"},
+			Asset{AssetCode: "tst2", Description: "the future of finance"}},
+	}
+	helper.keeper.SetAssetParams(ctx, ap)
 	assets = helper.keeper.GetAssets(ctx)
 	require.Equal(t, len(assets), 2)
 	require.Equal(t, assets[0].AssetCode, "tst")
@@ -38,7 +46,10 @@ func TestKeeper_GetSetPrice(t *testing.T) {
 	header := abci.Header{Height: helper.mApp.LastBlockHeight() + 1}
 	helper.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := helper.mApp.BaseApp.NewContext(false, abci.Header{})
-	helper.keeper.AddAsset(ctx, "tst", "test asset")
+	ap := AssetParams{
+		Assets: []Asset{Asset{AssetCode: "tst", Description: "the future of finance"}},
+	}
+	helper.keeper.SetAssetParams(ctx, ap)
 	// Set price by oracle 1
 	_, err := helper.keeper.SetPrice(
 		ctx, helper.addrs[0], "tst",
@@ -77,7 +88,10 @@ func TestKeeper_GetSetCurrentPrice(t *testing.T) {
 	helper.mApp.BeginBlock(abci.RequestBeginBlock{Header: header})
 	ctx := helper.mApp.BaseApp.NewContext(false, abci.Header{})
 	// Odd number of oracles
-	helper.keeper.AddAsset(ctx, "tst", "test asset")
+	ap := AssetParams{
+		Assets: []Asset{Asset{AssetCode: "tst", Description: "the future of finance"}},
+	}
+	helper.keeper.SetAssetParams(ctx, ap)
 	helper.keeper.SetPrice(
 		ctx, helper.addrs[0], "tst",
 		sdk.MustNewDecFromStr("0.33"),
