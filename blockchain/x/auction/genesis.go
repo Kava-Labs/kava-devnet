@@ -4,26 +4,27 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
-// GenesisState - crisis genesis state
-type GenesisState struct {
-}
+// InitGenesis - initializes the store state from genesis data
+func InitGenesis(ctx sdk.Context, keeper Keeper, data GenesisState) {
+	keeper.SetParams(ctx, data.AuctionParams)
 
-// NewGenesisState creates a new GenesisState object
-func NewGenesisState() GenesisState {
-	return GenesisState{}
-}
-
-// DefaultGenesisState creates a default GenesisState object
-func DefaultGenesisState() GenesisState {
-	return GenesisState{}
-}
-
-// ValidateGenesis validates genesis state
-func ValidateGenesis(data GenesisState) error {
-	return nil
+	for _, a := range data.Auctions {
+		keeper.SetAuction(ctx, a)
+	}
 }
 
 // ExportGenesis returns a GenesisState for a given context and keeper.
 func ExportGenesis(ctx sdk.Context, keeper Keeper) GenesisState {
-	return NewGenesisState()
+	params := keeper.GetParams(ctx)
+
+	var genAuctions GenesisAuctions
+	iterator := keeper.GetAuctionIterator(ctx)
+
+	for ; iterator.Valid(); iterator.Next() {
+
+		auction := keeper.DecodeAuction(ctx, iterator.Value())
+		genAuctions = append(genAuctions, auction)
+
+	}
+	return NewGenesisState(params, genAuctions)
 }

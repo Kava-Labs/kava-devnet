@@ -3,14 +3,31 @@ package cli
 import (
 	"fmt"
 
+	"github.com/kava-labs/kava-devnet/blockchain/x/auction/types"
+	"github.com/spf13/cobra"
+
+	"github.com/cosmos/cosmos-sdk/client"
 	"github.com/cosmos/cosmos-sdk/client/context"
-	"github.com/cosmos/cosmos-sdk/client/utils"
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	authtxb "github.com/cosmos/cosmos-sdk/x/auth/client/txbuilder"
-	"github.com/kava-labs/kava-devnet/blockchain/x/auction"
-	"github.com/spf13/cobra"
+	"github.com/cosmos/cosmos-sdk/x/auth"
+	"github.com/cosmos/cosmos-sdk/x/auth/client/utils"
 )
+
+// GetTxCmd returns the transaction commands for this module
+// TODO: Tests, see: https://github.com/cosmos/cosmos-sdk/blob/18de630d0ae1887113e266982b51c2bf1f662edb/x/staking/client/cli/tx_test.go
+func GetTxCmd(cdc *codec.Codec) *cobra.Command {
+	auctionTxCmd := &cobra.Command{
+		Use:   "auction",
+		Short: "auction transactions subcommands",
+	}
+
+	auctionTxCmd.AddCommand(client.PostCommands(
+		GetCmdPlaceBid(cdc),
+	)...)
+
+	return auctionTxCmd
+}
 
 // GetCmdPlaceBid cli command for creating and modifying cdps.
 func GetCmdPlaceBid(cdc *codec.Codec) *cobra.Command {
@@ -19,12 +36,10 @@ func GetCmdPlaceBid(cdc *codec.Codec) *cobra.Command {
 		Short: "place a bid on an auction",
 		Args:  cobra.ExactArgs(4),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			cliCtx := context.NewCLIContext().WithCodec(cdc).WithAccountDecoder(cdc)
-			txBldr := authtxb.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
-			if err := cliCtx.EnsureAccountExists(); err != nil {
-				return err
-			}
-			id, err := auction.NewIDFromString(args[0])
+			cliCtx := context.NewCLIContext().WithCodec(cdc)
+			txBldr := auth.NewTxBuilderFromCLI().WithTxEncoder(utils.GetTxEncoder(cdc))
+
+			id, err := types.NewIDFromString(args[0])
 			if err != nil {
 				fmt.Printf("invalid auction id - %s \n", string(args[0]))
 				return err
@@ -41,12 +56,11 @@ func GetCmdPlaceBid(cdc *codec.Codec) *cobra.Command {
 				fmt.Printf("invalid lot - %s \n", string(args[3]))
 				return err
 			}
-			msg := auction.NewMsgPlaceBid(id, cliCtx.GetFromAddress(), bid, lot)
+			msg := types.NewMsgPlaceBid(id, cliCtx.GetFromAddress(), bid, lot)
 			err = msg.ValidateBasic()
 			if err != nil {
 				return err
 			}
-			cliCtx.PrintResponse = true
 			return utils.GenerateOrBroadcastMsgs(cliCtx, txBldr, []sdk.Msg{msg})
 		},
 	}

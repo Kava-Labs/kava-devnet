@@ -19,7 +19,7 @@ func TestKeeper_EndBlocker(t *testing.T) {
 	keeper.StartForwardAuction(ctx, seller, sdk.NewInt64Coin("token1", 20), sdk.NewInt64Coin("token2", 0))
 
 	// run the endblocker, simulating a block height after auction expiry
-	expiryBlock := ctx.BlockHeight() + int64(MaxAuctionDuration)
+	expiryBlock := ctx.BlockHeight() + int64(DefaultMaxAuctionDuration)
 	EndBlocker(ctx.WithBlockHeight(expiryBlock), keeper)
 
 	// check auction has been closed

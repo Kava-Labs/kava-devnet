@@ -1,4 +1,4 @@
-package auction
+package types
 
 import (
 	"testing"

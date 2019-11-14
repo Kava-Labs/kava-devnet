@@ -1,4 +1,4 @@
-package auction
+package types
 
 import sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -43,7 +43,7 @@ func (msg MsgPlaceBid) ValidateBasic() sdk.Error {
 
 // GetSignBytes gets the canonical byte representation of the Msg.
 func (msg MsgPlaceBid) GetSignBytes() []byte {
-	bz := moduleCdc.MustMarshalJSON(msg)
+	bz := ModuleCdc.MustMarshalJSON(msg)
 	return sdk.MustSortJSON(bz)
 }
 
