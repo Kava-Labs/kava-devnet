@@ -1,4 +1,4 @@
-package cdp
+package types
 
 import (
 	"fmt"
@@ -7,13 +7,16 @@ import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
 )
 
+// GovDenom asset code of the governance coin
+const GovDenom = "kava"
+
 // CDP is the state of a single Collateralized Debt Position.
 type CDP struct {
 	//ID             []byte                                    // removing IDs for now to make things simpler
-	Owner            sdk.AccAddress `json:"owner"`             // Account that authorizes changes to the CDP
-	CollateralDenom  string         `json:"collateral_denom"`  // Type of collateral stored in this CDP
-	CollateralAmount sdk.Int        `json:"collateral_amount"` // Amount of collateral stored in this CDP
-	Debt             sdk.Int        `json:"debt"`              // Amount of stable coin drawn from this CDP
+	Owner            sdk.AccAddress `json:"owner" yaml:"owner"`                         // Account that authorizes changes to the CDP
+	CollateralDenom  string         `json:"collateral_denom" yaml:"collateral_denom"`   // Type of collateral stored in this CDP
+	CollateralAmount sdk.Int        `json:"collateral_amount" yaml:"collateral_amount"` // Amount of collateral stored in this CDP
+	Debt             sdk.Int        `json:"debt" yaml:"debt"`                           // Amount of stable coin drawn from this CDP
 }
 
 func (cdp CDP) IsUnderCollateralized(price sdk.Dec, liquidationRatio sdk.Dec) bool {
@@ -29,12 +32,13 @@ func (cdp CDP) String() string {
   Debt:       %s`,
 		cdp.Owner,
 		sdk.NewCoin(cdp.CollateralDenom, cdp.CollateralAmount),
-		sdk.NewCoin(StableDenom, cdp.Debt),
+		sdk.NewCoin("usdx", cdp.Debt),
 	))
 }
 
 type CDPs []CDP
 
+// String implements stringer
 func (cdps CDPs) String() string {
 	out := ""
 	for _, cdp := range cdps {
@@ -43,12 +47,12 @@ func (cdps CDPs) String() string {
 	return out
 }
 
-// byCollateralRatio is used to sort CDPs
-type byCollateralRatio CDPs
+// ByCollateralRatio is used to sort CDPs
+type ByCollateralRatio CDPs
 
-func (cdps byCollateralRatio) Len() int      { return len(cdps) }
-func (cdps byCollateralRatio) Swap(i, j int) { cdps[i], cdps[j] = cdps[j], cdps[i] }
-func (cdps byCollateralRatio) Less(i, j int) bool {
+func (cdps ByCollateralRatio) Len() int      { return len(cdps) }
+func (cdps ByCollateralRatio) Swap(i, j int) { cdps[i], cdps[j] = cdps[j], cdps[i] }
+func (cdps ByCollateralRatio) Less(i, j int) bool {
 	// Sort by "collateral ratio" ie collateralAmount/Debt
 	// The comparison is: collat_i/debt_i < collat_j/debt_j
 	// But to avoid division this can be rearranged to: collat_i*debt_j < collat_j*debt_i
@@ -67,7 +71,7 @@ func (cdps byCollateralRatio) Less(i, j int) bool {
 
 // CollateralState stores global information tied to a particular collateral type.
 type CollateralState struct {
-	Denom     string  // Type of collateral
-	TotalDebt sdk.Int // total debt collateralized by a this coin type
+	Denom     string  `json:"denom" yaml:"denom"`           // Type of collateral
+	TotalDebt sdk.Int `json:"total_debt" yaml:"total_debt"` // total debt collateralized by a this coin type
 	//AccumulatedFees sdk.Int // Ignoring fees for now
 }

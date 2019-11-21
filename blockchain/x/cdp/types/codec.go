@@ -1,15 +1,15 @@
-package cdp
+package types
 
 import "github.com/cosmos/cosmos-sdk/codec"
 
-// generic sealed codec to be used throughout module
-var moduleCdc *codec.Codec
+// ModuleCdc generic sealed codec to be used throughout module
+var ModuleCdc *codec.Codec
 
 func init() {
 	cdc := codec.New()
 	RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
-	moduleCdc = cdc.Seal()
+	ModuleCdc = cdc.Seal()
 }
 
 // RegisterCodec registers concrete types on the codec.
