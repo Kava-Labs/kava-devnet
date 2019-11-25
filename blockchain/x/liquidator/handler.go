@@ -33,7 +33,7 @@ func handleMsgSeizeAndStartCollateralAuction(ctx sdk.Context, keeper Keeper, msg
 
 func handleMsgStartDebtAuction(ctx sdk.Context, keeper Keeper) sdk.Result {
 	// cancel out any debt and stable coins before trying to start auction
-	keeper.settleDebt(ctx)
+	keeper.SettleDebt(ctx)
 	// start an auction
 	_, err := keeper.StartDebtAuction(ctx)
 	if err != nil {

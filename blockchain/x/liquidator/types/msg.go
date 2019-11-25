@@ -1,4 +1,4 @@
-package liquidator
+package types
 
 import sdk "github.com/cosmos/cosmos-sdk/types"
 
@@ -15,6 +15,7 @@ Design options and problems:
 	- running this as an endblocker adds complexity and potential vulnerabilities
 */
 
+// MsgSeizeAndStartCollateralAuction siezes a cdp that is below liquidation ratio and starts an auction for the collateral
 type MsgSeizeAndStartCollateralAuction struct {
 	Sender          sdk.AccAddress // only needed to pay the tx fees
 	CdpOwner        sdk.AccAddress
@@ -41,7 +42,7 @@ func (msg MsgSeizeAndStartCollateralAuction) ValidateBasic() sdk.Error {
 
 // GetSignBytes gets the canonical byte representation of the Msg.
 func (msg MsgSeizeAndStartCollateralAuction) GetSignBytes() []byte {
-	bz := moduleCdc.MustMarshalJSON(msg)
+	bz := ModuleCdc.MustMarshalJSON(msg)
 	return sdk.MustSortJSON(bz)
 }
 
@@ -50,21 +51,31 @@ func (msg MsgSeizeAndStartCollateralAuction) GetSigners() []sdk.AccAddress {
 	return []sdk.AccAddress{msg.Sender}
 }
 
+// MsgStartDebtAuction starts an auction of gov tokens for stable tokens
 type MsgStartDebtAuction struct {
 	Sender sdk.AccAddress // only needed to pay the tx fees
 }
 
+// Route returns the route for this message
 func (msg MsgStartDebtAuction) Route() string { return "liquidator" }
-func (msg MsgStartDebtAuction) Type() string  { return "start_debt_auction" } // TODO snake case?
+
+// Type returns the type for this message
+func (msg MsgStartDebtAuction) Type() string { return "start_debt_auction" }
+
+// ValidateBasic simple validation check
 func (msg MsgStartDebtAuction) ValidateBasic() sdk.Error {
 	if msg.Sender.Empty() {
 		return sdk.ErrInternal("invalid (empty) sender address")
 	}
 	return nil
 }
+
+// GetSignBytes returns canonical byte representation of the message
 func (msg MsgStartDebtAuction) GetSignBytes() []byte {
-	return sdk.MustSortJSON(moduleCdc.MustMarshalJSON(msg))
+	return sdk.MustSortJSON(ModuleCdc.MustMarshalJSON(msg))
 }
+
+// GetSigners returns the addresses of the signers of the message
 func (msg MsgStartDebtAuction) GetSigners() []sdk.AccAddress { return []sdk.AccAddress{msg.Sender} }
 
 // With no stability and liquidation fees, surplus auctions can never be run.

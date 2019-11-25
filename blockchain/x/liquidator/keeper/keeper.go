@@ -1,31 +1,32 @@
-package liquidator
+package keeper
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-	"github.com/cosmos/cosmos-sdk/x/params"
+	"github.com/cosmos/cosmos-sdk/x/params/subspace"
 
 	"github.com/kava-labs/kava-devnet/blockchain/x/auction"
+	"github.com/kava-labs/kava-devnet/blockchain/x/liquidator/types"
 )
 
 type Keeper struct {
-	cdc            *codec.Codec
-	paramsSubspace params.Subspace
-	storeKey       sdk.StoreKey
-	cdpKeeper      cdpKeeper
-	auctionKeeper  auctionKeeper
-	bankKeeper     bankKeeper
+	cdc           *codec.Codec
+	paramSubspace subspace.Subspace
+	key           sdk.StoreKey
+	cdpKeeper     types.CdpKeeper
+	auctionKeeper types.AuctionKeeper
+	bankKeeper    types.BankKeeper
 }
 
-func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, subspace params.Subspace, cdpKeeper cdpKeeper, auctionKeeper auctionKeeper, bankKeeper bankKeeper) Keeper {
-	subspace = subspace.WithKeyTable(createParamsKeyTable())
+func NewKeeper(cdc *codec.Codec, storeKey sdk.StoreKey, paramstore subspace.Subspace, cdpKeeper types.CdpKeeper, auctionKeeper types.AuctionKeeper, bankKeeper types.BankKeeper) Keeper {
+	subspace := paramstore.WithKeyTable(types.ParamKeyTable())
 	return Keeper{
-		cdc:            cdc,
-		paramsSubspace: subspace,
-		storeKey:       storeKey,
-		cdpKeeper:      cdpKeeper,
-		auctionKeeper:  auctionKeeper,
-		bankKeeper:     bankKeeper,
+		cdc:           cdc,
+		paramSubspace: subspace,
+		key:           storeKey,
+		cdpKeeper:     cdpKeeper,
+		auctionKeeper: auctionKeeper,
+		bankKeeper:    bankKeeper,
 	}
 }
 
@@ -40,8 +41,16 @@ func (k Keeper) SeizeAndStartCollateralAuction(ctx sdk.Context, owner sdk.AccAdd
 	}
 
 	// Calculate amount of collateral to sell in this auction
-	params := k.GetParams(ctx).GetCollateralParams(cdp.CollateralDenom)
-	collateralToSell := sdk.MinInt(cdp.CollateralAmount, params.AuctionSize)
+	paramsMap := make(map[string]types.CollateralParams)
+	params := k.GetParams(ctx).CollateralParams
+	for _, cp := range params {
+		paramsMap[cp.Denom] = cp
+	}
+	collateralParams, found := paramsMap[collateralDenom]
+	if !found {
+		return 0, sdk.ErrInternal("collateral denom not found")
+	}
+	collateralToSell := sdk.MinInt(cdp.CollateralAmount, collateralParams.AuctionSize)
 	// Calculate the corresponding maximum amount of stable coin to raise TODO test maths
 	stableToRaise := sdk.NewDecFromInt(collateralToSell).Quo(sdk.NewDecFromInt(cdp.CollateralAmount)).Mul(sdk.NewDecFromInt(cdp.Debt)).RoundInt()
 
@@ -146,7 +155,7 @@ func (k Keeper) partialSeizeCDP(ctx sdk.Context, owner sdk.AccAddress, collatera
 // SettleDebt removes equal amounts of debt and stable coin from the liquidator's reserves (and also updates the global debt in the cdp module).
 // This is called in the handler when a debt or surplus auction is started
 // TODO Should this be called with an amount, rather than annihilating the maximum?
-func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
+func (k Keeper) SettleDebt(ctx sdk.Context) sdk.Error {
 	// Calculate max amount of debt and stable coins that can be settled (ie annihilated)
 	debt := k.GetSeizedDebt(ctx)
 	stableCoins := k.bankKeeper.GetCoins(ctx, k.cdpKeeper.GetLiquidatorAccountAddress()).AmountOf(k.cdpKeeper.GetStableDenom())
@@ -170,37 +179,26 @@ func (k Keeper) settleDebt(ctx sdk.Context) sdk.Error {
 	return nil
 }
 
-// ---------- Module Parameters ----------
-
-func (k Keeper) GetParams(ctx sdk.Context) LiquidatorModuleParams {
-	var params LiquidatorModuleParams
-	k.paramsSubspace.Get(ctx, moduleParamsKey, &params)
-	return params
-}
-
-// This is only needed to be able to setup the store from the genesis file. The keeper should not change any of the params itself.
-func (k Keeper) setParams(ctx sdk.Context, params LiquidatorModuleParams) {
-	k.paramsSubspace.Set(ctx, moduleParamsKey, &params)
-}
-
 // ---------- Store Wrappers ----------
 
 func (k Keeper) getSeizedDebtKey() []byte {
 	return []byte("seizedDebt")
 }
-func (k Keeper) GetSeizedDebt(ctx sdk.Context) SeizedDebt {
-	store := ctx.KVStore(k.storeKey)
+func (k Keeper) GetSeizedDebt(ctx sdk.Context) types.SeizedDebt {
+	store := ctx.KVStore(k.key)
 	bz := store.Get(k.getSeizedDebtKey())
 	if bz == nil {
 		// TODO make initial seized debt and CDPs configurable at genesis, then panic here if not found
-		bz = k.cdc.MustMarshalBinaryLengthPrefixed(SeizedDebt{sdk.ZeroInt(), sdk.ZeroInt()})
+		bz = k.cdc.MustMarshalBinaryLengthPrefixed(types.SeizedDebt{
+			Total:         sdk.ZeroInt(),
+			SentToAuction: sdk.ZeroInt()})
 	}
-	var seizedDebt SeizedDebt
+	var seizedDebt types.SeizedDebt
 	k.cdc.MustUnmarshalBinaryLengthPrefixed(bz, &seizedDebt)
 	return seizedDebt
 }
-func (k Keeper) setSeizedDebt(ctx sdk.Context, debt SeizedDebt) {
-	store := ctx.KVStore(k.storeKey)
+func (k Keeper) setSeizedDebt(ctx sdk.Context, debt types.SeizedDebt) {
+	store := ctx.KVStore(k.key)
 	bz := k.cdc.MustMarshalBinaryLengthPrefixed(debt)
 	store.Set(k.getSeizedDebtKey(), bz)
 }

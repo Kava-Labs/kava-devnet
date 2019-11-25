@@ -1,4 +1,4 @@
-package liquidator
+package types
 
 import (
 	sdk "github.com/cosmos/cosmos-sdk/types"
@@ -7,7 +7,8 @@ import (
 	"github.com/kava-labs/kava-devnet/blockchain/x/cdp"
 )
 
-type cdpKeeper interface {
+// CdpKeeper expected interface for the cdp keeper
+type CdpKeeper interface {
 	GetCDP(sdk.Context, sdk.AccAddress, string) (cdp.CDP, bool)
 	PartialSeizeCDP(sdk.Context, sdk.AccAddress, string, sdk.Int, sdk.Int) sdk.Error
 	ReduceGlobalDebt(sdk.Context, sdk.Int) sdk.Error
@@ -16,13 +17,15 @@ type cdpKeeper interface {
 	GetLiquidatorAccountAddress() sdk.AccAddress // This won't need to exist once the module account is defined in this module (instead of in the cdp module)
 }
 
-type bankKeeper interface {
+// BankKeeper expected interface for the bank keeper
+type BankKeeper interface {
 	GetCoins(sdk.Context, sdk.AccAddress) sdk.Coins
 	AddCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Error)
 	SubtractCoins(sdk.Context, sdk.AccAddress, sdk.Coins) (sdk.Coins, sdk.Error)
 }
 
-type auctionKeeper interface {
+// AuctionKeeper expected interface for the auction keeper
+type AuctionKeeper interface {
 	StartForwardAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin) (auction.ID, sdk.Error)
 	StartReverseAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin) (auction.ID, sdk.Error)
 	StartForwardReverseAuction(sdk.Context, sdk.AccAddress, sdk.Coin, sdk.Coin, sdk.AccAddress) (auction.ID, sdk.Error)

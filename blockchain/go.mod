@@ -10,4 +10,5 @@ require (
 	github.com/stretchr/testify v1.4.0
 	github.com/tendermint/go-amino v0.15.0
 	github.com/tendermint/tendermint v0.32.6
+	github.com/tendermint/tm-db v0.2.0
 )

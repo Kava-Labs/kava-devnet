@@ -1,4 +1,4 @@
-package liquidator
+package keeper
 
 import (
 	"github.com/cosmos/cosmos-sdk/codec"
@@ -8,11 +8,12 @@ import (
 	"github.com/cosmos/cosmos-sdk/x/bank"
 	"github.com/cosmos/cosmos-sdk/x/params"
 	abci "github.com/tendermint/tendermint/abci/types"
-	dbm "github.com/tendermint/tendermint/libs/db"
 	"github.com/tendermint/tendermint/libs/log"
+	dbm "github.com/tendermint/tm-db"
 
 	"github.com/kava-labs/kava-devnet/blockchain/x/auction"
 	"github.com/kava-labs/kava-devnet/blockchain/x/cdp"
+	"github.com/kava-labs/kava-devnet/blockchain/x/liquidator/types"
 	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
 )
 
@@ -67,24 +68,26 @@ func setupTestKeepers() (sdk.Context, keepers) {
 		paramsKeeper.Subspace(auth.DefaultParamspace),
 		auth.ProtoBaseAccount,
 	)
+	blacklistedAddrs := make(map[string]bool)
 	bankKeeper := bank.NewBaseKeeper(
 		accountKeeper,
 		paramsKeeper.Subspace(bank.DefaultParamspace),
 		bank.DefaultCodespace,
+		blacklistedAddrs,
 	)
-	pricefeedKeeper := pricefeed.NewKeeper(keyPriceFeed, cdc, pricefeed.DefaultCodespace)
+	pricefeedKeeper := pricefeed.NewKeeper(keyPriceFeed, cdc, paramsKeeper.Subspace(pricefeed.DefaultParamspace).WithKeyTable(pricefeed.ParamKeyTable()), pricefeed.DefaultCodespace)
 	cdpKeeper := cdp.NewKeeper(
 		cdc,
 		keyCDP,
-		paramsKeeper.Subspace("cdpSubspace"),
+		paramsKeeper.Subspace(cdp.DefaultParamspace),
 		pricefeedKeeper,
 		bankKeeper,
 	)
-	auctionKeeper := auction.NewKeeper(cdc, cdpKeeper, keyAuction) // Note: cdp keeper stands in for bank keeper
+	auctionKeeper := auction.NewKeeper(cdc, cdpKeeper, keyAuction, paramsKeeper.Subspace(auction.DefaultParamspace)) // Note: cdp keeper stands in for bank keeper
 	liquidatorKeeper := NewKeeper(
 		cdc,
 		keyLiquidator,
-		paramsKeeper.Subspace("liquidatorSubspace"),
+		paramsKeeper.Subspace(types.DefaultParamspace),
 		cdpKeeper,
 		auctionKeeper,
 		cdpKeeper,
@@ -111,8 +114,57 @@ func makeTestCodec() *codec.Codec {
 	pricefeed.RegisterCodec(cdc)
 	auction.RegisterCodec(cdc)
 	cdp.RegisterCodec(cdc)
-	RegisterCodec(cdc)
+	types.RegisterCodec(cdc)
 	sdk.RegisterCodec(cdc)
 	codec.RegisterCrypto(cdc)
 	return cdc
+}
+
+func defaultParams() types.LiquidatorParams {
+	return types.LiquidatorParams{
+		DebtAuctionSize: sdk.NewInt(1000),
+		CollateralParams: []types.CollateralParams{
+			{
+				Denom:       "btc",
+				AuctionSize: sdk.NewInt(1),
+			},
+		},
+	}
+}
+
+func cdpDefaultGenesis() cdp.GenesisState {
+	return cdp.GenesisState{
+		cdp.CdpParams{
+			GlobalDebtLimit: sdk.NewInt(1000000),
+			CollateralParams: []cdp.CollateralParams{
+				{
+					Denom:            "btc",
+					LiquidationRatio: sdk.MustNewDecFromStr("1.5"),
+					DebtLimit:        sdk.NewInt(500000),
+				},
+			},
+		},
+		sdk.ZeroInt(),
+		cdp.CDPs{},
+	}
+}
+
+func pricefeedGenesis() pricefeed.GenesisState {
+	ap := pricefeed.AssetParams{
+		Assets: []pricefeed.Asset{
+			pricefeed.Asset{AssetCode: "btc", Description: "a description"},
+		},
+	}
+	return pricefeed.GenesisState{
+		AssetParams:  ap,
+		OracleParams: pricefeed.DefaultOracleParams(),
+		PostedPrices: []pricefeed.PostedPrice{
+			pricefeed.PostedPrice{
+				AssetCode:     "btc",
+				OracleAddress: "",
+				Price:         sdk.MustNewDecFromStr("8000.00"),
+				Expiry:        sdk.NewInt(999999999),
+			},
+		},
+	}
 }

@@ -1,4 +1,4 @@
-package liquidator
+package keeper
 
 import (
 	"testing"
@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/kava-labs/kava-devnet/blockchain/x/cdp"
+	"github.com/kava-labs/kava-devnet/blockchain/x/liquidator/types"
 	"github.com/kava-labs/kava-devnet/blockchain/x/pricefeed"
 )
 
@@ -17,11 +18,12 @@ func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {
 
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
 
-	cdp.InitGenesis(ctx, k.cdpKeeper, cdp.DefaultGenesisState())
-	InitGenesis(ctx, k.liquidatorKeeper, DefaultGenesisState())
-	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeed.GenesisState{Assets: []pricefeed.Asset{{"btc", "a description"}}})
+	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeedGenesis())
 	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("8000.00"), i(999999999))
 	k.pricefeedKeeper.SetCurrentPrices(ctx)
+	cdp.InitGenesis(ctx, k.cdpKeeper, k.pricefeedKeeper, cdpDefaultGenesis())
+	dp := defaultParams()
+	k.liquidatorKeeper.SetParams(ctx, dp)
 	k.bankKeeper.AddCoins(ctx, addrs[0], cs(c("btc", 100)))
 
 	k.cdpKeeper.ModifyCDP(ctx, addrs[0], "btc", i(3), i(16000))
@@ -47,8 +49,8 @@ func TestKeeper_SeizeAndStartCollateralAuction(t *testing.T) {
 func TestKeeper_StartDebtAuction(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
-	InitGenesis(ctx, k.liquidatorKeeper, DefaultGenesisState())
-	initSDebt := SeizedDebt{i(2000), i(0)}
+	k.liquidatorKeeper.SetParams(ctx, defaultParams())
+	initSDebt := types.SeizedDebt{i(2000), i(0)}
 	k.liquidatorKeeper.setSeizedDebt(ctx, initSDebt)
 
 	// Execute
@@ -57,7 +59,7 @@ func TestKeeper_StartDebtAuction(t *testing.T) {
 	// Check
 	require.NoError(t, err)
 	require.Equal(t,
-		SeizedDebt{
+		types.SeizedDebt{
 			initSDebt.Total,
 			initSDebt.SentToAuction.Add(k.liquidatorKeeper.GetParams(ctx).DebtAuctionSize),
 		},
@@ -96,12 +98,13 @@ func TestKeeper_partialSeizeCDP(t *testing.T) {
 
 	_, addrs := mock.GeneratePrivKeyAddressPairs(1)
 
-	cdp.InitGenesis(ctx, k.cdpKeeper, cdp.DefaultGenesisState())
-	InitGenesis(ctx, k.liquidatorKeeper, DefaultGenesisState())
-	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeed.GenesisState{Assets: []pricefeed.Asset{{"btc", "a description"}}})
+	pricefeed.InitGenesis(ctx, k.pricefeedKeeper, pricefeedGenesis())
+
 	k.pricefeedKeeper.SetPrice(ctx, addrs[0], "btc", sdk.MustNewDecFromStr("8000.00"), i(999999999))
 	k.pricefeedKeeper.SetCurrentPrices(ctx)
 	k.bankKeeper.AddCoins(ctx, addrs[0], cs(c("btc", 100)))
+	cdp.InitGenesis(ctx, k.cdpKeeper, k.pricefeedKeeper, cdpDefaultGenesis())
+	k.liquidatorKeeper.SetParams(ctx, defaultParams())
 
 	k.cdpKeeper.ModifyCDP(ctx, addrs[0], "btc", i(3), i(16000))
 
@@ -122,7 +125,7 @@ func TestKeeper_partialSeizeCDP(t *testing.T) {
 func TestKeeper_GetSetSeizedDebt(t *testing.T) {
 	// Setup
 	ctx, k := setupTestKeepers()
-	debt := SeizedDebt{i(234247645), i(2343)}
+	debt := types.SeizedDebt{i(234247645), i(2343)}
 
 	// Run test function
 	k.liquidatorKeeper.setSeizedDebt(ctx, debt)

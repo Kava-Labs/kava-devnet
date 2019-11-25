@@ -5,7 +5,6 @@ import (
 
 	"github.com/cosmos/cosmos-sdk/codec"
 	sdk "github.com/cosmos/cosmos-sdk/types"
-
 )
 
 // TODO refactor constants to app.go
@@ -45,13 +44,13 @@ type Keeper struct {
 // - adding oracles
 // - adding/removing assets from the pricefeed
 func NewKeeper(
-		storeKey sdk.StoreKey, cdc *codec.Codec, paramSpace ParamSubspace, codespace sdk.CodespaceType,
-	) Keeper {
+	storeKey sdk.StoreKey, cdc *codec.Codec, paramSpace ParamSubspace, codespace sdk.CodespaceType,
+) Keeper {
 	return Keeper{
-		paramSpace:   paramSpace,
-		storeKey:     storeKey,
-		cdc:          cdc,
-		codespace:    codespace,
+		paramSpace: paramSpace,
+		storeKey:   storeKey,
+		cdc:        cdc,
+		codespace:  codespace,
 	}
 }
 
@@ -85,7 +84,7 @@ func (k Keeper) SetAssetParams(ctx sdk.Context, ap AssetParams) {
 }
 
 func (k Keeper) SetOracleParams(ctx sdk.Context, op OracleParams) {
-	k.paramSpace.Set(ctx, ParamStoreKeyAssets, &op)
+	k.paramSpace.Set(ctx, ParamStoreKeyOracles, &op)
 }
 
 // SetPrice updates the posted price for a specific oracle
